@@ -31,7 +31,10 @@ program
   .option('-frm, --format <format>', 'Output format (console, json, junit, allure, html, hop)', 'console')
   .option('--retry <count>', 'Number of retries for failed tests', config.retry.toString())
   .option('--timeout <ms>', 'Test timeout in milliseconds', config.timeout.toString())
+  .option('-p, --parallel', 'Run tests in parallel', false)
+  .option('-cn, --concurrency <count>', 'Maximum concurrent tests', '4')
   .option('-c, --config <path>', 'Path to config file')
+  .option('--report-dir <path>', 'Directory to save reports', './reports')
   .action(async (options) => {
     try {
       // Load custom config if provided
@@ -80,6 +83,10 @@ program
         verbose: mergedOptions.verbose,
         timeout: mergedOptions.timeout,
         retry: mergedOptions.retry,
+        parallel: mergedOptions.parallel || false,
+        concurrency: Number(mergedOptions.concurrency) || 4,
+        report: mergedOptions.report ? 'html' : undefined,
+        reportDir: mergedOptions.reportDir || './reports',
       });
       
       const collector = new TestResultCollector();
@@ -89,28 +96,28 @@ program
       reporter.printResults(results);
       
       // Generate report if requested
-      const format = mergedOptions.format || 'console';
+      const formats = (mergedOptions.format || 'console').split(',').map((f: string) => f.trim());
+      const reportDir = mergedOptions.reportDir || './reports';
       
-      if (format !== 'console') {
-        if (format === 'html' || mergedOptions.report) {
+      for (const format of formats) {
+        if (format === 'html' || (mergedOptions.report && format === 'console')) {
           const { HtmlReporter } = await import('../src/reporter/html-reporter.js');
-          const htmlReporter = new HtmlReporter();
+          const htmlReporter = new HtmlReporter(reportDir);
           await htmlReporter.generate(results, collector);
-          console.log('\n📊 HTML report generated');
         }
         
         if (format === 'json') {
           const { JsonReporter } = await import('../src/reporter/json-reporter.js');
-          const jsonReporter = new JsonReporter();
+          const jsonReporter = new JsonReporter(reportDir);
           const jsonPath = await jsonReporter.generate(results);
-          console.log(`\n📊 JSON report generated: ${jsonPath}`);
+          console.log(`📊 JSON report generated: ${jsonPath}`);
         }
         
         if (format === 'junit') {
           const { JunitReporter } = await import('../src/reporter/junit-reporter.js');
-          const junitReporter = new JunitReporter();
+          const junitReporter = new JunitReporter(reportDir);
           const junitPath = await junitReporter.generate(results);
-          console.log(`\n📊 JUnit XML report generated: ${junitPath}`);
+          console.log(`📊 JUnit XML report generated: ${junitPath}`);
         }
         
         if (format === 'allure') {
@@ -118,7 +125,6 @@ program
           const allureReporter = new AllureReporter();
           const allurePath = await allureReporter.generate(results);
           console.log(`\n📊 Allure results generated: ${allurePath}`);
-          console.log('   Run: allure serve ' + allurePath);
         }
         
         if (format === 'hop') {
@@ -126,7 +132,6 @@ program
           const hopReporter = new HopReporter();
           const hopPath = await hopReporter.generate(results);
           console.log(`\n📊 Hop report generated: ${hopPath}`);
-          console.log('   Run: hop report to view in browser');
         }
       }
       
@@ -175,6 +180,28 @@ program
       
       const reporter = new ConsoleReporter();
       reporter.printFeatures(parsedFeatures);
+    } catch (error) {
+      console.error('❌ Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+// Mock command
+program
+  .command('mock')
+  .description('Start a mock API server from a feature file')
+  .option('-f, --feature <path>', 'Path to mock feature file')
+  .option('-p, --port <port>', 'Port number', '8080')
+  .option('-v, --verbose', 'Verbose output', false)
+  .action(async (options) => {
+    try {
+      if (!options.feature) {
+        console.error('❌ Error: Path to mock feature file is required (-f, --feature)');
+        process.exit(1);
+      }
+      const { MockServer } = await import('../src/mock/mock-server.js');
+      const server = new MockServer(path.resolve(options.feature), parseInt(options.port), options.verbose);
+      await server.start();
     } catch (error) {
       console.error('❌ Error:', error instanceof Error ? error.message : error);
       process.exit(1);

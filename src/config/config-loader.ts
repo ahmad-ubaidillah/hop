@@ -28,11 +28,13 @@ export interface CliOptions {
   format?: string;
   timeout?: number;
   retry?: number;
-  parallel?: number;
+  parallel?: boolean;
+  concurrency?: number;
   tags?: string;
   env?: string;
   verbose?: boolean;
   report?: boolean;
+  reportDir?: string;
 }
 
 const DEFAULT_CONFIG: HopConfig = {
@@ -118,11 +120,13 @@ export function mergeOptions(config: HopConfig, cliOptions: CliOptions): Require
     format: cliOptions.format || config.format[0],
     timeout: cliOptions.timeout ?? config.timeout,
     retry: cliOptions.retry ?? config.retry,
-    parallel: cliOptions.parallel ?? config.parallel,
+    parallel: cliOptions.parallel ?? (config.parallel > 1),
+    concurrency: cliOptions.concurrency ?? (config.parallel || 4),
     tags: cliOptions.tags || getTagString(config.tags),
     env: cliOptions.env || 'test',
     verbose: cliOptions.verbose || false,
     report: cliOptions.report || false,
+    reportDir: cliOptions.reportDir || config.reports,
   };
 }
 

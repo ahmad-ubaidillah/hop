@@ -1,125 +1,139 @@
-import type { Feature, TestContext, TestResult, StepResult, EngineOptions, HttpMethod, Response, Scenario } from '../types/index.js';
+import type { Feature, TestContext, TestResult, EngineOptions, Logger } from '../types/index.js';
+import { BufferedLogger } from '../utils/buffered-logger.js';
 import { TestResultCollector } from './test-result-collector.js';
 import { StepExecutor } from './step-executor.js';
 import { HooksRunner } from './hooks-runner.js';
 import { loadEnv } from '../utils/env-loader.js';
+import { GherkinParser } from '../parser/gherkin-parser.js';
+import { generateUndefinedStepMessage, type SnippetOptions } from './snippet-generator.js';
+import { TagFilter } from '../utils/tag-filter.js';
+import { ScenarioRunner } from './scenario-runner.js';
 
 export class TestEngine {
   private options: EngineOptions;
-  private stepExecutor: StepExecutor;
   private envConfig: Record<string, string>;
   private hooksRunner: HooksRunner;
+  private scenarioRunner: ScenarioRunner;
+  private undefinedSteps: SnippetOptions[] = [];
   
   constructor(options: EngineOptions) {
     this.options = options;
-    
-    // Load environment variables
     this.envConfig = loadEnv(options.env);
     
     if (options.verbose) {
       console.log('📋 Environment variables loaded:', Object.keys(this.envConfig).length);
     }
     
-    this.stepExecutor = new StepExecutor({
-      stepsPath: options.stepsPath,
-      env: options.env,
-      verbose: options.verbose,
-      timeout: options.timeout,
-      envConfig: this.envConfig,
-    });
-    
-    // Initialize hooks runner
     this.hooksRunner = new HooksRunner('./hooks');
+    this.scenarioRunner = new ScenarioRunner(this.hooksRunner, this.undefinedSteps);
+  }
+
+  private createExecutor(logger?: Logger): StepExecutor {
+    return new StepExecutor({
+      featuresPath: this.options.featuresPath,
+      stepsPath: this.options.stepsPath,
+      env: this.options.env,
+      verbose: this.options.verbose,
+      timeout: this.options.timeout,
+      envConfig: this.envConfig,
+      logger,
+    });
   }
   
-  /**
-   * Run all features
-   */
   async run(features: Feature[], collector: TestResultCollector): Promise<TestResult[]> {
     const results: TestResult[] = [];
-    
-    // Execute beforeAll hook
     await this.hooksRunner.beforeAll();
     
-    // Bun automatically loads .env files
-    // Use process.env or import.meta.env for environment variables
+    const filteredFeatures = TagFilter.filter(features, this.options.tags);
     
-    // Filter features by tags
-    const filteredFeatures = this.filterByTags(features);
-    
-    for (const feature of filteredFeatures) {
-      // Create feature-level context
-      const featureContext = this.createContext();
+    if (this.options.parallel) {
+      const concurrency = this.options.concurrency || 4;
+      const chunks = this.splitIntoChunks(filteredFeatures, concurrency);
       
-      // Run background steps if present
-      if (feature.background) {
-        for (const step of feature.background.steps) {
-          try {
-            await this.stepExecutor.executeStep(step, featureContext);
-          } catch (error) {
-            // Log background failure but continue
-            console.error('Background step failed:', error);
+      const featurePromises = chunks.map(async (chunk) => {
+        const workerLogger = new BufferedLogger();
+        const workerExecutor = this.createExecutor(workerLogger);
+        const chunkResults: TestResult[] = [];
+        
+        for (const feature of chunk) {
+          const featureResults = await this.runFeature(feature, collector, workerExecutor);
+          chunkResults.push(...featureResults);
+          
+          if (this.options.verbose && workerLogger.getLogs().length > 0) {
+            console.log(`\n--- Logs for Feature: ${feature.name} ---`);
+            workerLogger.print();
+            workerLogger.clear();
           }
         }
-      }
+        await workerExecutor.cleanup();
+        return chunkResults;
+      });
       
-      // Run each scenario
-      for (const scenario of feature.scenarios) {
-        // Handle Scenario Outline with examples
-        if (scenario.outline && scenario.examples) {
-          for (const example of scenario.examples) {
-            const exampleResults = await this.runScenarioOutline(
-              feature,
-              scenario,
-              example.table,
-              collector,
-              featureContext
-            );
-            results.push(...exampleResults);
-          }
-        } else {
-          const result = await this.runScenario(feature, scenario, collector, featureContext);
-          results.push(result);
+      const allResultsChunks = await Promise.all(featurePromises);
+      for (const chunkResults of allResultsChunks) {
+        results.push(...chunkResults);
+      }
+    } else {
+      const executor = this.createExecutor();
+      for (const feature of filteredFeatures) {
+        const featureResults = await this.runFeature(feature, collector, executor);
+        results.push(...featureResults);
+      }
+      await executor.cleanup();
+    }
+    
+    if (this.undefinedSteps.length > 0) {
+      console.log(generateUndefinedStepMessage(this.undefinedSteps));
+    }
+    
+    await this.hooksRunner.afterAll();
+    return results;
+  }
+
+  private async runFeature(feature: Feature, collector: TestResultCollector, executor: StepExecutor): Promise<TestResult[]> {
+    const results: TestResult[] = [];
+    const featureContext = this.createContext(feature.filePath, executor.getLogger());
+    
+    if (feature.background) {
+      for (const step of feature.background.steps) {
+        try {
+          await executor.executeStep(step, featureContext);
+        } catch (error) {
+          console.error(`Background step failed in ${feature.filePath}:`, error);
         }
       }
     }
     
-    // Execute afterAll hook
-    await this.hooksRunner.afterAll();
-    
+    for (const scenario of feature.scenarios) {
+      if (scenario.outline && scenario.examples) {
+        for (const example of scenario.examples) {
+          const exampleResults = await this.scenarioRunner.runScenarioOutline(
+            feature,
+            scenario,
+            example.table,
+            collector,
+            featureContext,
+            executor
+          );
+          results.push(...exampleResults);
+        }
+      } else {
+        const result = await this.scenarioRunner.runScenario(feature, scenario, collector, featureContext, executor);
+        results.push(result);
+      }
+    }
     return results;
   }
-  
-  private filterByTags(features: Feature[]): Feature[] {
-    if (!this.options.tags) return features;
-    
-    const filterTags = this.options.tags.replace(/@/g, '').split(',').map(t => t.trim());
-    
-    return features.map(feature => {
-      // Check if feature has matching tags
-      const featureHasMatchingTag = feature.tags && feature.tags.some(tag => filterTags.includes(tag));
-      
-      // Filter scenarios that have any matching tag OR scenarios from features with matching tags
-      const filteredScenarios = feature.scenarios.filter(scenario => {
-        // If scenario has tags, check for matches
-        if (scenario.tags && scenario.tags.length > 0) {
-          const scenarioHasMatch = scenario.tags.some(tag => filterTags.includes(tag));
-          if (scenarioHasMatch) return true;
-        }
-        // If feature has matching tag, include all scenarios
-        if (featureHasMatchingTag) return true;
-        // Otherwise exclude
-        return false;
-      });
-      
-      return {
-        ...feature,
-        scenarios: filteredScenarios,
-      };
-    }).filter(feature => feature.scenarios.length > 0);
+
+  private splitIntoChunks<T>(array: T[], count: number): T[][] {
+    const chunks: T[][] = Array.from({ length: Math.min(count, array.length) }, () => []);
+    array.forEach((item, index) => {
+      chunks[index % chunks.length].push(item);
+    });
+    return chunks;
   }
   
-  private createContext(): TestContext {
+  private createContext(featureFilePath?: string, logger: Logger = console): TestContext {
     return {
       baseUrl: '',
       path: '',
@@ -129,139 +143,11 @@ export class TestEngine {
       body: undefined,
       variables: {},
       cookies: {},
+      read: async (filePath: string) => {
+        const parser = new GherkinParser();
+        return await parser.read(filePath, featureFilePath);
+      },
+      logger,
     };
-  }
-  
-  private async runScenarioOutline(
-    feature: Feature,
-    scenario: Scenario,
-    table: { headers: string[]; rows: string[][] },
-    collector: TestResultCollector,
-    featureContext: TestContext
-  ): Promise<TestResult[]> {
-    const results: TestResult[] = [];
-    
-    // Clone the context for each example row
-    for (let i = 0; i < table.rows.length; i++) {
-      const row = table.rows[i];
-      const context = { ...featureContext };
-      
-      // Inject table variables
-      for (let j = 0; j < table.headers.length; j++) {
-        context.variables[table.headers[j]] = row[j];
-      }
-      
-      // Replace <variable> in step text
-      const modifiedScenario = this.injectVariables(scenario, table.headers, row);
-      
-      const result = await this.runScenario(
-        feature,
-        modifiedScenario,
-        collector,
-        context,
-        ` (Row ${i + 1})`
-      );
-      results.push(result);
-    }
-    
-    return results;
-  }
-  
-  private injectVariables(scenario: Scenario, headers: string[], row: string[]): Scenario {
-    const map = new Map<string, string>();
-    for (let i = 0; i < headers.length; i++) {
-      map.set(`<${headers[i]}>`, row[i]);
-    }
-    
-    return {
-      ...scenario,
-      steps: scenario.steps.map(step => ({
-        ...step,
-        text: this.replaceVariables(step.text, map),
-      })),
-    };
-  }
-  
-  private replaceVariables(text: string, map: Map<string, string>): string {
-    let result = text;
-    for (const [key, value] of map) {
-      // Use simple string replacement (key is already like '<title>')
-      result = result.split(key).join(value);
-    }
-    return result;
-  }
-  
-  private async runScenario(
-    feature: Feature,
-    scenario: Scenario,
-    collector: TestResultCollector,
-    context: TestContext,
-    suffix: string = ''
-  ): Promise<TestResult> {
-    const startTime = Date.now();
-    const stepResults: StepResult[] = [];
-    
-    // Create scenario-level context (clone from feature context)
-    const scenarioContext: TestContext = JSON.parse(JSON.stringify(context));
-    
-    // Execute beforeScenario hook
-    await this.hooksRunner.beforeScenario(scenario, scenarioContext);
-    
-    for (const step of scenario.steps) {
-      const stepStartTime = Date.now();
-      
-      // Execute beforeStep hook
-      await this.hooksRunner.beforeStep(step, scenarioContext);
-      
-      try {
-        await this.stepExecutor.executeStep(step, scenarioContext);
-        
-        stepResults.push({
-          step,
-          status: 'passed',
-          duration: Date.now() - stepStartTime,
-        });
-        
-        // Execute afterStep hook (success)
-        await this.hooksRunner.afterStep(step, scenarioContext, { status: 'passed' });
-      } catch (error) {
-        stepResults.push({
-          step,
-          status: 'failed',
-          duration: Date.now() - stepStartTime,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        
-        // Execute afterStep hook (failure)
-        await this.hooksRunner.afterStep(step, scenarioContext, { status: 'failed', error });
-        
-        // Stop execution on first failure
-        break;
-      }
-    }
-    
-    const duration = Date.now() - startTime;
-    const failed = stepResults.some(r => r.status === 'failed');
-    
-    const result: TestResult = {
-      featureName: feature.name,
-      scenarioName: scenario.name + suffix,
-      status: failed ? 'failed' : 'passed',
-      duration,
-      steps: stepResults,
-      tags: scenario.tags,
-    };
-    
-    if (failed) {
-      const failedStep = stepResults.find(r => r.status === 'failed');
-      result.error = failedStep?.error;
-    }
-    
-    collector.add(result);
-    
-    // Execute afterScenario hook
-    await this.hooksRunner.afterScenario(scenario, scenarioContext, result);
-    
-    return result;
   }
 }

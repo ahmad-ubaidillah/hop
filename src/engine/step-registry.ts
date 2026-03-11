@@ -1,10 +1,13 @@
 import type { Step, TestContext } from '../types/index.js';
+import { parseCucumberExpression, matchExpression, type ParsedExpression } from './cucumber-expression.js';
 
-type StepHandler = (step: Step, context: TestContext) => Promise<void> | void;
+type StepHandler = (step: Step, context: TestContext, params?: Record<string, any>) => Promise<void> | void;
 
 interface StepMapping {
   pattern: RegExp;
+  expression?: ParsedExpression; // For Cucumber expressions
   handler: StepHandler;
+  originalPattern: string; // Original pattern string for debugging
 }
 
 export class StepRegistry {
@@ -47,7 +50,20 @@ export class StepRegistry {
       const [keyword, ...patternParts] = pattern.split(' ');
       const patternStr = patternParts.join(' ');
       
-      const regex = this.convertToRegex(patternStr);
+      // Check if it's a Cucumber expression (contains {type} or {name:type})
+      const isCucumberExpression = /\{[^}]+\}/.test(patternStr);
+      
+      let regex: RegExp;
+      let parsedExpression;
+      
+      if (isCucumberExpression) {
+        // Parse as Cucumber expression
+        parsedExpression = parseCucumberExpression(patternStr);
+        regex = parsedExpression.regex;
+      } else {
+        // Legacy regex pattern
+        regex = this.convertToRegex(patternStr);
+      }
       
       if (!this.mappings.has(keyword)) {
         this.mappings.set(keyword, []);
@@ -55,20 +71,32 @@ export class StepRegistry {
       
       this.mappings.get(keyword)!.push({
         pattern: regex,
+        expression: parsedExpression,
         handler,
+        originalPattern: patternStr,
       });
     }
   }
   
   /**
    * Find a handler for the given step
+   * Returns handler and extracted parameters (if using Cucumber expression)
    */
-  findHandler(keyword: string, text: string): StepHandler | null {
+  findHandler(keyword: string, text: string): { handler: StepHandler; params?: Record<string, any> } | null {
     const mappings = this.mappings.get(keyword) || [];
     
     for (const mapping of mappings) {
-      if (mapping.pattern.test(text)) {
-        return mapping.handler;
+      if (mapping.expression) {
+        // Use Cucumber expression matching
+        const result = matchExpression(mapping.originalPattern, text);
+        if (result.matched) {
+          return { handler: mapping.handler, params: result.parameters };
+        }
+      } else {
+        // Legacy regex matching
+        if (mapping.pattern.test(text)) {
+          return { handler: mapping.handler };
+        }
       }
     }
     

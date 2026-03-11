@@ -7,6 +7,14 @@ export interface Feature {
   background?: Background;
   tags: string[];
   filePath: string;
+  rules?: Rule[];
+}
+
+export interface Rule {
+  name: string;
+  description?: string;
+  scenarios: Scenario[];
+  tags: string[];
 }
 
 export interface Background {
@@ -39,6 +47,12 @@ export interface Step {
   line: number;
 }
 
+export interface Logger {
+  log: (...args: any[]) => void;
+  error: (...args: any[]) => void;
+  warn: (...args: any[]) => void;
+}
+
 export interface TestContext {
   baseUrl: string;
   path: string;
@@ -48,8 +62,10 @@ export interface TestContext {
   body: any;
   formData?: Record<string, any>;
   variables: Record<string, any>;
+  read: (filePath: string) => Promise<any>;
   response?: Response;
   cookies: Record<string, string>;
+  logger: Logger;
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
@@ -60,6 +76,7 @@ export interface Response {
   headers: Record<string, string>;
   body: any;
   cookies: Record<string, string>;
+  responseTime?: number;
 }
 
 export interface TestResult {
@@ -70,6 +87,7 @@ export interface TestResult {
   error?: string;
   steps: StepResult[];
   tags: string[];
+  screenshotPath?: string;
 }
 
 export interface StepResult {
@@ -77,6 +95,7 @@ export interface StepResult {
   status: 'passed' | 'failed' | 'skipped';
   duration: number;
   error?: string;
+  screenshotPath?: string;
 }
 
 export interface HopConfig {
@@ -102,4 +121,8 @@ export interface EngineOptions {
   verbose: boolean;
   timeout: number;
   retry: number;
+  parallel: boolean;
+  concurrency: number;
+  report?: 'html' | 'json' | 'junit';
+  reportDir?: string;
 }

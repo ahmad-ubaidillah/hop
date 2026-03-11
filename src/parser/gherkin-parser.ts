@@ -1,6 +1,7 @@
-import { readdir, readFile } from 'fs/promises';
-import { join, extname, dirname } from 'path';
-import type { Feature, Scenario, Step, Background, DataTable, Example } from '../types/index.js';
+import { readdir, readFile, stat } from 'fs/promises';
+import { join, extname } from 'path';
+import { DataTableParser } from './data-table-parser.js';
+import type { Feature, Scenario, Step, Background, DataTable, Example, Rule } from '../types/index.js';
 
 export class GherkinParser {
   /**
@@ -10,6 +11,15 @@ export class GherkinParser {
     const featureFiles: string[] = [];
     
     try {
+      const stats = await stat(featuresPath);
+      
+      if (stats.isFile()) {
+        if (extname(featuresPath) === '.feature') {
+          return [featuresPath];
+        }
+        return [];
+      }
+      
       const entries = await readdir(featuresPath, { withFileTypes: true });
       
       for (const entry of entries) {
@@ -86,11 +96,21 @@ export class GherkinParser {
       filePath,
     };
     
-    // Process children (Background and Scenarios)
+    // Process children (Background, Rules, and Scenarios)
     for (const child of feature.children || []) {
       // Handle Background
       if (child.background) {
         featureResult.background = this.convertBackground(child.background);
+      }
+      // Handle Rule (Gherkin 6+)
+      else if (child.rule) {
+        const rule = await this.convertRule(child.rule, filePath);
+        if (rule) {
+          featureResult.rules = featureResult.rules || [];
+          featureResult.rules.push(rule);
+          // Add rule scenarios to the feature's scenarios
+          featureResult.scenarios.push(...rule.scenarios);
+        }
       }
       // Handle Scenario or ScenarioOutline
       else if (child.scenario) {
@@ -109,6 +129,58 @@ export class GherkinParser {
       steps: bg.steps.map((s: any) => this.convertStep(s)),
     };
   }
+
+  /**
+   * Convert a Rule (Gherkin 6+) to Rule type
+   */
+  private convertRule(rule: any, filePath: string): Rule | null {
+    const scenarios: Scenario[] = [];
+    
+    // Process rule children (scenarios)
+    for (const child of rule.children || []) {
+      if (child.scenario) {
+        // Check if it's a Scenario Outline
+        const isOutline = child.scenario.keyword === 'Scenario Outline';
+        const scenario = this.convertScenarioSync(child.scenario, isOutline, filePath);
+        scenarios.push(scenario);
+      }
+    }
+    
+    return {
+      name: rule.name,
+      description: rule.description,
+      scenarios,
+      tags: rule.tags?.map((t: any) => t.name.replace(/^@/, '')) || [],
+    };
+  }
+
+  /**
+   * Synchronous version of convertScenario for Rules
+   */
+  private convertScenarioSync(scenario: any, isOutline: boolean, filePath: string): Scenario {
+    const result: Scenario = {
+      name: scenario.name,
+      steps: scenario.steps.map((s: any) => this.convertStep(s)),
+      tags: scenario.tags?.map((t: any) => t.name.replace(/^@/, '')) || [],
+      outline: isOutline,
+    };
+    
+    // Handle Scenario Outline examples - just store the structure (data loaded lazily)
+    if (isOutline && scenario.examples && scenario.examples.length > 0) {
+      result.examples = [];
+      for (const ex of scenario.examples) {
+        const headers = ex.tableHeader?.cells?.map((c: any) => c.value) || [];
+        const rows = ex.tableBody?.map((row: any) => row.cells.map((c: any) => c.value)) || [];
+        
+        result.examples.push({
+          name: ex.name || 'Examples',
+          table: { headers, rows },
+        });
+      }
+    }
+    
+    return result;
+  }
   
   private async convertScenario(scenario: any, isOutline: boolean, filePath: string): Promise<Scenario> {
     const result: Scenario = {
@@ -122,8 +194,20 @@ export class GherkinParser {
     if (isOutline && scenario.examples && scenario.examples.length > 0) {
       result.examples = [];
       for (const ex of scenario.examples) {
-        const example = await this.convertExample(ex, filePath);
-        result.examples.push(example);
+        const exampleName = ex.name || 'Examples';
+        const fileMatch = exampleName.match(/^@file\((.+)\)$/);
+        
+        if (fileMatch) {
+          const dataFilePath = fileMatch[1].trim();
+          const table = await this.parseDataFile(dataFilePath, filePath);
+          result.examples.push({
+            name: `Examples from ${dataFilePath}`,
+            table,
+          });
+        } else {
+          const example = await this.convertExample(ex, filePath);
+          result.examples.push(example);
+        }
       }
     }
     
@@ -131,26 +215,12 @@ export class GherkinParser {
   }
   
   private async convertExample(examples: any, filePath: string): Promise<Example> {
-    // Check if examples uses @file() syntax to load CSV
-    const exampleName = examples.name || 'Examples';
-    const fileMatch = exampleName.match(/^@file\((.+)\)$/);
-    
-    if (fileMatch) {
-      // Load data from CSV file
-      const csvPath = fileMatch[1].trim();
-      const table = await this.parseCsvFile(csvPath, filePath);
-      return {
-        name: `Examples from ${csvPath}`,
-        table,
-      };
-    }
-    
-    // Standard inline table
+    // Normal case: Convert inline table
     const headers = examples.tableHeader?.cells?.map((c: any) => c.value) || [];
     const rows = examples.tableBody?.map((row: any) => row.cells.map((c: any) => c.value)) || [];
     
     return {
-      name: exampleName,
+      name: examples.name || 'Examples',
       table: { headers, rows },
     };
   }
@@ -200,73 +270,17 @@ export class GherkinParser {
   }
   
   /**
-   * Parse a CSV file and return DataTable
-   * Supports both comma and semicolon delimiters
+   * Parse a data file (CSV or JSON) and return DataTable
    */
-  private async parseCsvFile(filePath: string, featureFilePath: string): Promise<DataTable> {
-    // Resolve relative path from feature file directory
-    const baseDir = dirname(featureFilePath);
-    const fullPath = join(baseDir, filePath);
-    
-    try {
-      const content = await readFile(fullPath, 'utf-8');
-      return this.parseCsvContent(content);
-    } catch (error) {
-      throw new Error(`Failed to read CSV file '${filePath}': ${error instanceof Error ? error.message : error}`);
-    }
+  private async parseDataFile(filePath: string, featureFilePath: string): Promise<DataTable> {
+    return DataTableParser.parseDataFile(filePath, featureFilePath);
   }
-  
+
   /**
-   * Parse CSV content into DataTable
+   * Read and parse a file (JSON, CSV, or text)
+   * This is used for the read() function in feature files
    */
-  private parseCsvContent(content: string): DataTable {
-    const lines = content.trim().split(/\r?\n/);
-    
-    if (lines.length === 0) {
-      return { headers: [], rows: [] };
-    }
-    
-    // Detect delimiter (comma or semicolon) based on first line
-    const firstLine = lines[0];
-    const commaCount = (firstLine.match(/,/g) || []).length;
-    const semicolonCount = (firstLine.match(/;/g) || []).length;
-    const delimiter = semicolonCount > commaCount ? ';' : ',';
-    
-    const headers = this.parseCsvLine(lines[0], delimiter);
-    const rows: string[][] = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (line) {
-        rows.push(this.parseCsvLine(line, delimiter));
-      }
-    }
-    
-    return { headers, rows };
-  }
-  
-  /**
-   * Parse a single CSV line handling quoted values
-   */
-  private parseCsvLine(line: string, delimiter: string): string[] {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === delimiter && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    
-    result.push(current.trim());
-    return result;
+  async read(filePath: string, featureFilePath?: string): Promise<any> {
+    return DataTableParser.read(filePath, featureFilePath);
   }
 }
