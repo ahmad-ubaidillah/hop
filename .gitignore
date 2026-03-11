@@ -1,0 +1,8 @@
+node_modules/
+reports/
+.env
+.env.local
+*.log
+.DS_Store
+*.tgz
+bun.lockb

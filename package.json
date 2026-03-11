@@ -1,0 +1,41 @@
+{
+  "name": "hop",
+  "version": "1.0.0",
+  "description": "High-performance BDD automation testing framework for API & UI testing",
+  "type": "module",
+  "bin": {
+    "hop": "./bin/cli.js"
+  },
+  "scripts": {
+    "build": "bun build bin/cli.ts --outdir bin --target bun",
+    "test": "bun test",
+    "dev": "bun run bin/cli.ts"
+  },
+  "dependencies": {
+    "@cucumber/gherkin": "^28.0.0",
+    "@cucumber/messages": "^25.0.0",
+    "arktype": "latest",
+    "commander": "^12.0.0",
+    "dotenv": "^17.3.1",
+    "eta": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "playwright-core": "^1.58.2"
+  },
+  "keywords": [
+    "bdd",
+    "testing",
+    "api-testing",
+    "ui-testing",
+    "gherkin",
+    "karate",
+    "playwright",
+    "bun"
+  ],
+  "author": "Hop Team",
+  "license": "MIT"
+}

@@ -1,0 +1,11 @@
+{
+  "variables": {
+    "originalName": {
+      "name": "originalName",
+      "value": "Leanne Graham",
+      "createdAt": "2026-03-10T21:15:16.348Z",
+      "path": "response.name"
+    }
+  },
+  "updatedAt": "2026-03-10T21:15:16.349Z"
+}
