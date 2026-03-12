@@ -126,10 +126,7 @@ export class HtmlReportBuilder {
 '      </div>\n' +
 '    </div>\n' +
 '    \n' +
-'    <div class="chart-section">\n' +
-'      <h2>Trend (Last 10 runs)</h2>\n' +
-'      <div class="chart" id="trendChart"></div>\n' +
-'    </div>\n' +
+'\n' +
 '    \n' +
 '    <div class="tabs">\n' +
 '      <div class="tab active" onclick="filterTests(\'all\')">All</div>\n' +
@@ -178,14 +175,6 @@ export class HtmlReportBuilder {
 '      "</div>";\n' +
 '    }\n' +
 '    \n' +
-'    const chart = document.getElementById(\'trendChart\');\n' +
-'    for (let i = 0; i < 10; i++) {\n' +
-'      const height = 20 + Math.random() * 80;\n' +
-'      const bar = document.createElement(\'div\');\n' +
-'      bar.className = \'chart-bar\';\n' +
-'      bar.style.height = height + \'%\';\n' +
-'      chart.appendChild(bar);\n' +
-'    }\n' +
 '  </script>\n' +
 '</body>\n' +
 '</html>';

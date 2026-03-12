@@ -23,47 +23,11 @@ export class HopReporterV2 {
 
     const summary = this.calculateSummary(results);
     const mediaResults = await this.bundleMedia(results, reportPath);
-    const history = await this.updateHistory(summary);
-    
-    const html = this.generateHtml(mediaResults, summary, history);
+    const html = this.generateHtml(mediaResults, summary);
     const finalPath = join(reportPath, 'index.html');
     await writeFile(finalPath, html, 'utf-8');
     
     return finalPath;
-  }
-
-  private async updateHistory(summary: any) {
-    const hopDir = resolve('.hop');
-    const historyPath = join(hopDir, 'history.json');
-    
-    try {
-      await mkdir(hopDir, { recursive: true });
-      let history = [];
-      try {
-        const content = await readFile(historyPath, 'utf-8');
-        history = JSON.parse(content);
-      } catch (e) {
-        // New history file
-      }
-
-      const entry = {
-        date: new Date().toISOString(),
-        ...summary
-      };
-
-      history.push(entry);
-      
-      // Keep last 50 runs
-      if (history.length > 50) {
-        history = history.slice(-50);
-      }
-
-      await writeFile(historyPath, JSON.stringify(history, null, 2), 'utf-8');
-      return history;
-    } catch (e) {
-      console.error('Failed to update Hop history:', e);
-      return [];
-    }
   }
 
   private calculateSummary(results: TestResult[]) {
@@ -132,10 +96,9 @@ export class HopReporterV2 {
     return bundledResults;
   }
 
-  private generateHtml(results: TestResult[], summary: any, history: any[]): string {
+  private generateHtml(results: TestResult[], summary: any): string {
     const data = JSON.stringify(results);
     const summaryData = JSON.stringify(summary);
-    const historyData = JSON.stringify(history);
 
     return `
 <!DOCTYPE html>
@@ -542,10 +505,6 @@ export class HopReporterV2 {
                 </div>
             </div>
 
-            <div class="history-section">
-                <div class="section-title">Historical Trends</div>
-                <canvas id="historyChart" height="120"></canvas>
-            </div>
 
             <nav class="nav-links">
                 <div class="section-title">Views</div>
@@ -588,14 +547,10 @@ export class HopReporterV2 {
         </div>
     </div>
 
-    <script id="rawData" type="application/json">${data}</script>
     <script id="summaryData" type="application/json">${summaryData}</script>
-    <script id="historyData" type="application/json">${historyData}</script>
 
     <script>
-        const results = JSON.parse(document.getElementById('rawData').textContent);
         const summary = JSON.parse(document.getElementById('summaryData').textContent);
-        const history = JSON.parse(document.getElementById('historyData').textContent);
         
         // Initialize Theme
         const currentTheme = localStorage.getItem('theme') || 'dark';
@@ -632,7 +587,6 @@ export class HopReporterV2 {
             const textColor = isDark ? '#94a3b8' : '#64748b';
 
             if (summaryChart) summaryChart.destroy();
-            if (historyChart) historyChart.destroy();
 
             // Donut Chart
             summaryChart = new Chart(document.getElementById('summaryDonut'), {
@@ -656,36 +610,6 @@ export class HopReporterV2 {
                 }
             });
 
-            // Trend Chart
-            historyChart = new Chart(document.getElementById('historyChart'), {
-                type: 'line',
-                data: {
-                    labels: history.map((_, i) => i + 1),
-                    datasets: [{
-                        label: 'Pass Rate %',
-                        data: history.map(h => Math.round((h.passed / h.total) * 100)),
-                        borderColor: '#6366f1',
-                        borderWidth: 2,
-                        fill: true,
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                        tension: 0.4,
-                        pointRadius: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { display: false },
-                        y: { 
-                            min: 0, max: 100,
-                            grid: { color: gridColor },
-                            ticks: { color: textColor, font: { size: 9 }, stepSize: 50 }
-                        }
-                    }
-                }
-            });
         }
 
         function renderResults(filtered) {
