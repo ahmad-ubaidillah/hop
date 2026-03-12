@@ -77,7 +77,7 @@ Hop executes the above quickly, generates clear reports, and integrates with CI/
 | **API Testing** | HTTP requests with response validation |
 | **UI Testing** | Browser automation with Playwright |
 | **Load Testing** | Generate k6 scripts from feature files |
-| **Report** | JSON, JUnit, Premium HTML (Glassmorphism), Allure |
+| **Report** | JSON, JUnit, Premium HTML, Allure, Newman Dashboard |
 
 ---
 
@@ -251,7 +251,7 @@ hop-project/
 ✅ Load Testing - generate k6 script  
 ✅ Premium HTML reporting with glassmorphism and animations  
 ✅ Screenshots on failure for UI tests  
-✅ Multiple reporters (JSON, JUnit, HTML, Allure)  
+✅ Multiple reporters (JSON, JUnit, HTML/Newman, Allure)  
 ✅ Custom types and transformers  
 ✅ Feature calling (like Karate)  
 
@@ -408,7 +408,7 @@ hop test -c my-config.ts
 | `--tags` | `-t` | Filter by tags |
 | `--env` | `-e` | Environment (test, staging, prod) |
 | `--report` | `-r` | Generate HTML report |
-| `--format` | `-frm` | Output format |
+| `--format` | `-frm` | Output format (console, json, junit, html, hop, allure, newman) |
 | `--verbose` | `-v` | Verbose logging |
 | `--retry` | - | Retry failed tests |
 | `--timeout` | - | Step timeout in ms |

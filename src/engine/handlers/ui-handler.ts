@@ -22,6 +22,7 @@ export class UiHandler implements StepHandler {
         playwright = new PlaywrightClient({
           headless: true,
           timeout: executor.getOptions().timeout,
+          video: executor.getOptions().video,
         });
         executor.setPlaywright(playwright);
       }

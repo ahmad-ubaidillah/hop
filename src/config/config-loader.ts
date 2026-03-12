@@ -35,6 +35,7 @@ export interface CliOptions {
   verbose?: boolean;
   report?: boolean;
   reportDir?: string;
+  video?: boolean;
 }
 
 const DEFAULT_CONFIG: HopConfig = {
@@ -127,6 +128,7 @@ export function mergeOptions(config: HopConfig, cliOptions: CliOptions): Require
     verbose: cliOptions.verbose || false,
     report: cliOptions.report || false,
     reportDir: cliOptions.reportDir || config.reports,
+    video: cliOptions.video || false,
   };
 }
 

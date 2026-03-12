@@ -21,6 +21,9 @@ jobs:
       - name: Install Dependencies
         run: bun install
 
+      - name: Install Playwright Browsers
+        run: bunx playwright install --with-deps
+
       - name: Run Hop Tests
         run: bun run bin/cli.ts test -f features/ -p -cn 4 --format html,junit --report-dir reports
 

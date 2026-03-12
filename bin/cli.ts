@@ -7,6 +7,8 @@ import { ConsoleReporter } from '../src/reporter/console-reporter.js';
 import { TestResultCollector } from '../src/engine/test-result-collector.js';
 import { loadConfig, mergeOptions } from '../src/config/config-loader.js';
 import * as path from 'path';
+import { spawn } from 'child_process';
+import { readdir, stat } from 'fs/promises';
 
 const program = new Command();
 
@@ -20,26 +22,42 @@ program
 
 // Test command
 program
-  .command('test')
+  .command('test [path]')
   .description('Run BDD tests')
   .option('-f, --features <path>', 'Path to features directory', config.features)
   .option('-s, --steps <path>', 'Path to custom steps directory', config.steps)
   .option('-t, --tags <tags>', 'Filter scenarios by tags', '')
   .option('-e, --env <env>', 'Environment to use', 'test')
-  .option('-r, --report', 'Generate HTML report', false)
+  .option('-r, --report', 'Generate Allure report', true)
   .option('-v, --verbose', 'Verbose output', false)
-  .option('-frm, --format <format>', 'Output format (console, json, junit, allure, html, hop)', 'console')
+  .option('-frm, --format <format>', 'Output format (console, json, junit, allure, html, hop, newman)', 'console,allure,hop')
   .option('--retry <count>', 'Number of retries for failed tests', config.retry.toString())
   .option('--timeout <ms>', 'Test timeout in milliseconds', config.timeout.toString())
   .option('-p, --parallel', 'Run tests in parallel', false)
   .option('-cn, --concurrency <count>', 'Maximum concurrent tests', '4')
+  .option('--video', 'Record video of UI tests', false)
   .option('-c, --config <path>', 'Path to config file')
   .option('--report-dir <path>', 'Directory to save reports', './reports')
-  .action(async (options) => {
+  .action(async (pathArg, options) => {
     try {
-      // Load custom config if provided
+      if (typeof pathArg !== 'string') {
+        options = pathArg || {};
+        pathArg = undefined;
+      } else if (!options) {
+        options = {};
+      }
+      const now = new Date();
+      const timestamp = now.toISOString().replace(/[:.]/g, '-').split('T')[0] + '_' + now.toTimeString().split(' ')[0].replace(/:/g, '-');
+      const baseReportDir = options.reportDir || (config as any).reportDir || './reports';
+      const reportDir = path.join(baseReportDir, timestamp);
+      
       const customConfig = options.config ? loadConfig(options.config) : config;
-      const mergedOptions = mergeOptions(customConfig, options);
+      const mergedOptions = mergeOptions(customConfig, { ...options, reportDir });
+
+      if (pathArg) {
+        mergedOptions.features = pathArg;
+      }
+
       
       console.log('🔷 Hop - BDD Testing Framework');
       console.log('================================\n');
@@ -85,6 +103,7 @@ program
         retry: mergedOptions.retry,
         parallel: mergedOptions.parallel || false,
         concurrency: Number(mergedOptions.concurrency) || 4,
+        video: mergedOptions.video || false,
         report: mergedOptions.report ? 'html' : undefined,
         reportDir: mergedOptions.reportDir || './reports',
       });
@@ -97,25 +116,19 @@ program
       
       // Generate report if requested
       const formats = (mergedOptions.format || 'console').split(',').map((f: string) => f.trim());
-      const reportDir = mergedOptions.reportDir || './reports';
+      const finalReportDir = mergedOptions.reportDir || './reports';
       
       for (const format of formats) {
-        if (format === 'html' || (mergedOptions.report && format === 'console')) {
-          const { HtmlReporter } = await import('../src/reporter/html-reporter.js');
-          const htmlReporter = new HtmlReporter(reportDir);
-          await htmlReporter.generate(results, collector);
-        }
-        
         if (format === 'json') {
           const { JsonReporter } = await import('../src/reporter/json-reporter.js');
-          const jsonReporter = new JsonReporter(reportDir);
+          const jsonReporter = new JsonReporter(finalReportDir);
           const jsonPath = await jsonReporter.generate(results);
           console.log(`📊 JSON report generated: ${jsonPath}`);
         }
         
         if (format === 'junit') {
           const { JunitReporter } = await import('../src/reporter/junit-reporter.js');
-          const junitReporter = new JunitReporter(reportDir);
+          const junitReporter = new JunitReporter(finalReportDir);
           const junitPath = await junitReporter.generate(results);
           console.log(`📊 JUnit XML report generated: ${junitPath}`);
         }
@@ -126,14 +139,27 @@ program
           const allurePath = await allureReporter.generate(results);
           console.log(`\n📊 Allure results generated: ${allurePath}`);
         }
-        
-        if (format === 'hop') {
-          const { HopReporter } = await import('../src/reporter/hop-reporter.js');
-          const hopReporter = new HopReporter();
-          const hopPath = await hopReporter.generate(results);
-          console.log(`\n📊 Hop report generated: ${hopPath}`);
+
+        if (format === 'hop' || format === 'html') {
+          const { HopReporterV2 } = await import('../src/reporter/hop-reporter-v2.js');
+          const hopReporter = new HopReporterV2(finalReportDir);
+          const reportPath = await hopReporter.generate(results, collector);
+          console.log(`\n✨ Premium Hop Report generated: ${reportPath}`);
+        }
+
+        if (format === 'newman') {
+          const { NewmanReporter } = await import('../src/reporter/newman-reporter.js');
+          const newmanReporter = new NewmanReporter(finalReportDir);
+          const reportPath = await newmanReporter.generate(results, collector);
+          console.log(`\n📊 Newman-style Report generated: ${reportPath}`);
         }
       }
+      
+      // Always save to history for report regeneration even if no format specified
+      const { mkdir, writeFile } = await import('fs/promises');
+      await mkdir(path.join(finalReportDir, 'history'), { recursive: true });
+      await writeFile(path.join(finalReportDir, 'history', `${Date.now()}.json`), JSON.stringify(results, null, 2), 'utf-8');
+
       
       // Exit with appropriate code
       const failed = results.filter(r => r.status === 'failed').length;
@@ -208,16 +234,72 @@ program
     }
   });
 
-// Report command - start local report server
+// Report command - View the official Allure or Hop Premium report
 program
   .command('report')
-  .description('Start local server to view Hop reports')
+  .description('View the test reports (prioritizes Hop Premium)')
   .option('-p, --port <port>', 'Port number', '9090')
+  .option('-a, --allure', 'Explicitly serve Allure report', false)
   .action(async (options) => {
     try {
-      const { HopReporter } = await import('../src/reporter/hop-reporter.js');
-      const reporter = new HopReporter();
-      await reporter.serve(parseInt(options.port));
+      const baseReportDir = config.reports || './reports';
+      
+      if (options.allure) {
+        const allureResultsDir = path.join(baseReportDir, 'allure-results');
+        console.log(`\n🚀 Starting Allure Report server...`);
+        console.log(`📂 Using results from: ${allureResultsDir}`);
+        const allurePort = options.port === '9090' ? '9091' : options.port;
+        spawn('npx', ['allure', 'serve', allureResultsDir, '-p', allurePort], {
+          stdio: 'inherit',
+          shell: true
+        });
+        return;
+      }
+
+      // Try to find Hop Premium Report
+      console.log(`\n🔍 Searching for the latest Hop Premium Report...`);
+      const dirs = await readdir(baseReportDir);
+      const timestampedDirs = [];
+      
+      for (const dir of dirs) {
+        if (dir === 'allure-results' || dir === 'history' || dir === 'screenshots' || dir === 'videos') continue;
+        const fullPath = path.join(baseReportDir, dir);
+        const s = await stat(fullPath);
+        if (s.isDirectory()) {
+          timestampedDirs.push({ name: dir, path: fullPath, mtime: s.mtime });
+        }
+      }
+
+      if (timestampedDirs.length === 0) {
+        console.error('❌ No Hop reports found. Run tests first with --format hop');
+        process.exit(1);
+      }
+
+      // Sort by mtime descending
+      timestampedDirs.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+      const latestReportDir = timestampedDirs[0].path;
+
+      console.log(`\n✨ Found latest report: ${timestampedDirs[0].name}`);
+      console.log(`📂 Serving report from: ${latestReportDir}`);
+      
+      // Check if index.html exists
+      const { existsSync } = await import('fs');
+      if (!existsSync(path.join(latestReportDir, 'index.html'))) {
+        console.error('❌ index.html not found in the latest report directory.');
+        process.exit(1);
+      }
+
+      console.log(`🔗 Access your report at: http://localhost:${options.port}`);
+      
+      const server = spawn('npx', ['-y', 'serve', latestReportDir, '-l', options.port], {
+        stdio: 'inherit',
+        shell: true
+      });
+
+      server.on('error', (err) => {
+        console.error('❌ Failed to start report server:', err.message);
+      });
+
     } catch (error) {
       console.error('❌ Error:', error instanceof Error ? error.message : error);
       process.exit(1);

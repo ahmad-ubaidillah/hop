@@ -1,4 +1,4 @@
-import type { Step, TestContext, HttpMethod, DataTable, Logger } from '../types/index.js';
+import type { Step, TestContext, Logger } from '../types/index.js';
 import { HttpClient } from '../http/http-client.js';
 import { ResponseValidator } from '../validation/response-validator.js';
 import { StepRegistry } from './step-registry.js';
@@ -6,8 +6,7 @@ import type { EnvConfig } from '../utils/env-loader.js';
 import { resolveEnvVariables as resolveEnv } from '../utils/env-loader.js';
 import { PlaywrightClient } from '../ui/playwright-client.js';
 import { AuthManager } from '../auth/auth-manager.js';
-import { readFile, mkdir } from 'fs/promises';
-import { join, dirname } from 'path';
+import { readFile } from 'fs/promises';
 import { FeatureCaller } from './feature-caller.js';
 import { DbManager } from '../db/db-manager.js';
 import { MockServer } from '../mock/mock-server.js';
@@ -19,7 +18,7 @@ import { DbHandler } from './handlers/db-handler.js';
 import { AssertionHandler } from './handlers/assertion-handler.js';
 import { CoreHandler } from './handlers/core-handler.js';
 import { ValueParser } from '../utils/value-parser.js';
-import { CsvParser } from '../utils/csv-parser.js';
+import { ScreenshotManager } from './screenshot-manager.js';
 
 interface StepExecutorOptions {
   stepsPath: string;
@@ -29,11 +28,12 @@ interface StepExecutorOptions {
   timeout: number;
   envConfig?: EnvConfig;
   logger?: Logger;
+  reportDir?: string;
+  video?: boolean;
 }
 
 export class StepExecutor implements IStepExecutor {
-  private handlers: StepHandler[] = [];
-  private options: StepExecutorOptions;
+  private handlers: StepHandler[];
   private httpClient: HttpClient;
   private validator: ResponseValidator;
   private stepRegistry: StepRegistry;
@@ -45,10 +45,9 @@ export class StepExecutor implements IStepExecutor {
   private mockServers: MockServer[] = [];
   private logger: Logger;
   private valueParser: ValueParser;
-  private csvParser: CsvParser;
+  private screenshotManager: ScreenshotManager;
   
-  constructor(options: StepExecutorOptions) {
-    this.options = options;
+  constructor(private options: StepExecutorOptions) {
     this.logger = options.logger || console;
     this.httpClient = new HttpClient({ timeout: options.timeout, verbose: options.verbose, logger: this.logger });
     this.validator = new ResponseValidator();
@@ -59,15 +58,11 @@ export class StepExecutor implements IStepExecutor {
     this.featureCaller.setStepExecutor(this);
     this.db = new DbManager();
     this.valueParser = new ValueParser(this.envConfig);
-    this.csvParser = new CsvParser();
+    this.screenshotManager = new ScreenshotManager(options.reportDir || './reports');
     
     this.handlers = [
-      new DbHandler(),
-      new CoreHandler(),
-      new HttpHandler(),
-      new AssertionHandler(),
-      new UiHandler(),
-      new AuthHandler(),
+      new DbHandler(), new CoreHandler(), new HttpHandler(),
+      new AssertionHandler(), new UiHandler(), new AuthHandler(),
     ];
   }
 
@@ -81,177 +76,65 @@ export class StepExecutor implements IStepExecutor {
   public getEnvConfig(): EnvConfig { return this.envConfig; }
   
   public getPlaywright(context?: TestContext): PlaywrightClient | null {
-    if (context && context.variables['__playwright']) {
-      return context.variables['__playwright'] as PlaywrightClient;
-    }
-    return this.playwright;
+    return (context?.variables['__playwright'] as PlaywrightClient) || this.playwright;
   }
-  
-  public setPlaywright(pw: PlaywrightClient | null): void {
-    this.playwright = pw;
-  }
-  
-  public addMockServer(server: any): void {
-    this.mockServers.push(server);
-  }
+  public setPlaywright(pw: PlaywrightClient | null): void { this.playwright = pw; }
+  public addMockServer(server: any): void { this.mockServers.push(server); }
 
   async executeStep(step: Step, context: TestContext): Promise<void> {
     const text = resolveEnv(step.text, this.envConfig);
+    const handler = this.handlers.find(h => h.canHandle(text));
+    if (handler) return await handler.handle(text, step, context, this);
     
-    for (const handler of this.handlers) {
-      if (handler.canHandle(text)) {
-        await handler.handle(text, step, context, this);
-        return;
-      }
-    }
+    const custom = this.stepRegistry.findHandler(step.keyword, text);
+    if (custom) return await custom.handler(step, context, custom.params);
     
-    const customHandlerResult = this.stepRegistry.findHandler(step.keyword, text);
-    if (customHandlerResult) {
-      await customHandlerResult.handler(step, context, customHandlerResult.params);
-      return;
-    }
-    
-    await this.executeBuiltInStep(step, context);
+    throw new Error(`Unknown step: ${step.keyword} ${step.text}`, { cause: { step, isUndefinedStep: true } });
   }
 
-  public extractValue(text: string, regex: RegExp): string {
-    return this.valueParser.extractValue(text, regex);
-  }
-  
-  public parseKeyValue(text: string): [string, string] {
-    return this.valueParser.parseKeyValue(text);
-  }
-  
-  public extractJsonBody(text: string): any {
-    return this.valueParser.extractJsonBody(text);
-  }
-  
-  public convertDataTable(table: { headers: string[]; rows: string[][] }): any {
-    return this.valueParser.convertDataTable(table);
-  }
-  
-  public buildUrl(baseUrl: string, path: string, queryParams: Record<string, string>): string {
-    return this.valueParser.buildUrl(baseUrl, path, queryParams);
-  }
-  
-  public resolveVariables(value: any, context: TestContext): any {
-    return this.valueParser.resolveVariables(value, context);
-  }
-  
-  public parseValue(value: string, context: TestContext): any {
-    return this.valueParser.parseValue(value, context);
-  }
-  
-  public stripQuotes(value: string): string {
-    return this.valueParser.stripQuotes(value);
-  }
-
-  public parseGherkinJson(jsonStr: string): any {
-    return this.valueParser.parseGherkinJson(jsonStr);
-  }
-  
-  public getNestedValue(obj: any, path: string): any {
-    return this.valueParser.getNestedValue(obj, path);
-  }
-  
-  private async executeBuiltInStep(step: Step, context: TestContext): Promise<void> {
-    throw new Error(`Unknown step: ${step.keyword} ${step.text}`, {
-      cause: { step, isUndefinedStep: true }
-    });
-  }
-  
-  async closeBrowser(): Promise<void> {
-    if (this.playwright) {
-      await this.playwright.close();
-      this.playwright = null;
-    }
-  }
+  // IStepExecutor interface methods delegated to ValueParser
+  public resolveVariables(value: any, context: TestContext): any { return this.valueParser.resolveVariables(value, context); }
+  public parseValue(value: string, context: TestContext): any { return this.valueParser.parseValue(value, context); }
+  public getNestedValue(obj: any, path: string): any { return this.valueParser.getNestedValue(obj, path); }
+  public stripQuotes(value: string): string { return this.valueParser.stripQuotes(value); }
+  public parseKeyValue(text: string): [string, string] { return this.valueParser.parseKeyValue(text); }
+  public extractJsonBody(text: string): any { return this.valueParser.extractJsonBody(text); }
+  public convertDataTable(table: any): any { return this.valueParser.convertDataTable(table); }
+  public buildUrl(baseUrl: string, path: string, queryParams: Record<string, string>): string { return this.valueParser.buildUrl(baseUrl, path, queryParams); }
+  public extractValue(text: string, regex: RegExp): string { return this.valueParser.extractValue(text, regex); }
+  public parseGherkinJson(jsonStr: string): any { return this.valueParser.parseGherkinJson(jsonStr); }
 
   public async takeScreenshot(name: string, context: TestContext): Promise<string | undefined> {
-    const pw = this.getPlaywright(context);
-    if (!pw) return undefined;
-    
-    const page = pw.getPage();
-    if (!page) return undefined;
-    
-    const reportDir = (this.options as any).reportDir || './reports';
-    const screenshotsDir = join(reportDir, 'screenshots');
-    
-    await mkdir(screenshotsDir, { recursive: true });
-    
-    const fileName = `${name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${Date.now()}.png`;
-    const filePath = join(screenshotsDir, fileName);
-    
-    await pw.screenshot({ path: filePath });
-    
-    // Return relative path for HTML report
-    return join('screenshots', fileName);
+    return this.screenshotManager.capture(name, context, this.getPlaywright(context));
   }
   
   public async loadCsvFile(csvPath: string, varName: string, context: TestContext): Promise<void> {
-    const resolvedPath = resolveEnv(csvPath, this.envConfig);
-    
+    const resolved = resolveEnv(csvPath, this.envConfig);
     try {
-      const content = await readFile(resolvedPath, 'utf-8');
-      const table = this.csvParser.parseCsvContent(content);
-      
-      const data: Record<string, any>[] = [];
-      for (const row of table.rows) {
-        const obj: Record<string, any> = {};
-        for (let i = 0; i < table.headers.length; i++) {
-          obj[table.headers[i]] = row[i];
-        }
-        data.push(obj);
-      }
-      
-      context.variables[varName] = data;
-      this.logger.log(`📄 Loaded ${data.length} rows from CSV '${csvPath}' into variable '${varName}'`);
-    } catch (error) {
-      throw new Error(`Failed to load CSV file '${csvPath}': ${error instanceof Error ? error.message : error}`);
+      const { CsvParser } = await import('../utils/csv-parser.js');
+      const table = new CsvParser().parseCsvContent(await readFile(resolved, 'utf-8'));
+      context.variables[varName] = table.rows.map(row => 
+        Object.fromEntries(table.headers.map((h, i) => [h, row[i]]))
+      );
+      this.logger.log(`📄 Loaded ${context.variables[varName].length} rows from CSV '${csvPath}'`);
+    } catch (e) {
+      throw new Error(`Failed to load CSV '${csvPath}': ${e instanceof Error ? e.message : e}`);
     }
   }
   
-  public async handleCallFeature(
-    featurePath: string, 
-    context: TestContext, 
-    args: Record<string, any> = {},
-    backgroundOnly: boolean = false
-  ): Promise<void> {
-    if (!this.featureCaller) {
-      throw new Error('FeatureCaller not initialized');
-    }
-    
-    const resolvedArgs = this.resolveVariables(args, context);
-    
-    const result = await this.featureCaller.call(featurePath, {
-      args: resolvedArgs,
-      backgroundOnly,
-    });
-    
-    if (!result.success) {
-      throw new Error(`Failed to call feature '${featurePath}': ${result.error}`);
-    }
-    
+  public async handleCallFeature(path: string, context: TestContext, args: any = {}, backgroundOnly = false): Promise<void> {
+    if (!this.featureCaller) throw new Error('FeatureCaller not initialized');
+    const result = await this.featureCaller.call(path, { args: this.resolveVariables(args, context), backgroundOnly });
+    if (!result.success) throw new Error(`Failed to call feature '${path}': ${result.error}`);
     context.variables = { ...context.variables, ...result.variables };
-    
-    this.logger.log(`🔗 Called feature: ${featurePath} (${result.duration}ms)`);
+    this.logger.log(`🔗 Called feature: ${path} (${result.duration}ms)`);
   }
   
   public async cleanup(): Promise<void> {
-    for (const server of this.mockServers) {
-      if (typeof (server as any).stop === 'function') {
-        await (server as any).stop();
-      }
-    }
+    await Promise.all(this.mockServers.map(s => (s as any).stop?.()));
+    if (this.playwright) await this.playwright.close();
+    this.db?.close();
     this.mockServers = [];
-
-    if (this.playwright) {
-      await this.playwright.close();
-      this.playwright = null;
-    }
-
-    if (this.db) {
-      this.db.close();
-    }
+    this.playwright = null;
   }
 }

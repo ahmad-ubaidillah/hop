@@ -1,99 +1,56 @@
-import { chromium } from 'playwright-core';
-import type { Browser, BrowserContext, Page } from 'playwright-core';
-import type { PlaywrightOptions, NetworkRequest } from './types.ts';
+import { chromium, firefox, webkit, type Browser, type BrowserContext, type Page } from 'playwright-core';
+import { join } from 'path';
+import type { PlaywrightOptions } from './types.ts';
 
 export class BrowserManager {
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
   private page: Page | null = null;
-  private options: PlaywrightOptions;
-  private videosDir: string = './videos';
-  private requestInterceptors: ((request: any) => void)[] = [];
-  private responseInterceptors: ((response: any) => void)[] = [];
+  private requestInterceptors: ((req: any) => void)[] = [];
+  private responseInterceptors: ((res: any) => void)[] = [];
 
-  constructor(options: PlaywrightOptions) {
-    this.options = options;
-  }
+  constructor(private options: PlaywrightOptions) {}
 
-  async launch(): Promise<void> {
-    try {
-      const browserType = this.options.browser === 'firefox' ? 'firefox' : 
-                         this.options.browser === 'webkit' ? 'webkit' : 'chromium';
-      
-      const contextOptions: any = {
-        viewport: this.options.viewport,
+  public async launch(): Promise<void> {
+    if (this.browser) return;
+    const type = this.options.browser === 'firefox' ? firefox : this.options.browser === 'webkit' ? webkit : chromium;
+    this.browser = await type.launch({ headless: this.options.headless });
+    
+    // Configure video recording if enabled
+    const contextOptions: any = { 
+      viewport: this.options.viewport,
+    };
+
+    if (this.options.video) {
+      contextOptions.recordVideo = {
+        dir: join('reports', 'videos'),
+        size: this.options.viewport || { width: 1280, height: 720 }
       };
-      
-      if (this.options.video) {
-        contextOptions.recordVideo = {
-          dir: this.videosDir,
-          size: this.options.viewport,
-        };
-      }
-      
-      this.browser = await chromium.launch({ 
-        headless: this.options.headless,
-      });
-      
-      this.context = await this.browser.newContext(contextOptions);
-      
-      await this.setupNetworkInterception();
-      
-      this.page = await this.context.newPage();
-      
-      if (this.page) {
-        this.page.setDefaultTimeout(this.options.timeout || 30000);
-      }
-    } catch (error) {
-      throw new Error(`Failed to launch browser: ${error instanceof Error ? error.message : error}`);
     }
+
+    this.context = await this.browser.newContext(contextOptions);
+    this.page = await this.context.newPage();
+    this.page.setDefaultTimeout(this.options.timeout || 30000);
+    this.setupInterceptors();
   }
 
-  private async setupNetworkInterception(): Promise<void> {
-    if (!this.context) return;
-    
-    await this.context.route('**/*', async (route, request) => {
-      for (const interceptor of this.requestInterceptors) {
-        interceptor(request);
-      }
-      await route.continue();
-    });
+  private setupInterceptors(): void {
+    if (!this.page) return;
+    this.page.on('request', req => this.requestInterceptors.forEach(h => h(req)));
+    this.page.on('response', res => this.responseInterceptors.forEach(h => h(res)));
   }
 
-  async close(): Promise<void> {
-    if (this.page) {
-      await this.page.close();
-      this.page = null;
-    }
-    
-    if (this.context) {
-      await this.context.close();
-      this.context = null;
-    }
-    
-    if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
-    }
-  }
+  public addRequestInterceptor(h: (req: any) => void): void { this.requestInterceptors.push(h); }
+  public addResponseInterceptor(h: (res: any) => void): void { this.responseInterceptors.push(h); }
 
-  addRequestInterceptor(handler: (request: any) => void): void {
-    this.requestInterceptors.push(handler);
-  }
+  public getPage(): Page | null { return this.page; }
+  public getContext(): BrowserContext | null { return this.context; }
+  public getOptions(): PlaywrightOptions { return this.options; }
 
-  addResponseInterceptor(handler: (response: any) => void): void {
-    this.responseInterceptors.push(handler);
-  }
-
-  getPage(): Page | null {
-    return this.page;
-  }
-
-  getContext(): BrowserContext | null {
-    return this.context;
-  }
-
-  getOptions(): PlaywrightOptions {
-    return this.options;
+  public async close(): Promise<void> {
+    await this.browser?.close();
+    this.browser = null;
+    this.context = null;
+    this.page = null;
   }
 }

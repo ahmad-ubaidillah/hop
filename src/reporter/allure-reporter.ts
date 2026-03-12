@@ -1,6 +1,6 @@
 import type { TestResult, StepResult } from '../types/index.js';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { writeFile, mkdir, copyFile, rm } from 'fs/promises';
+import { join, basename } from 'path';
 
 /**
  * Allure Report Generator
@@ -9,7 +9,6 @@ import { join } from 'path';
  */
 export class AllureReporter {
   private outputPath: string;
-  private testResults: AllureTestResult[] = [];
 
   constructor(outputPath: string = './reports/allure-results') {
     this.outputPath = outputPath;
@@ -19,12 +18,15 @@ export class AllureReporter {
    * Generate Allure report files
    */
   async generate(results: TestResult[]): Promise<string> {
-    // Create output directory
+    // Clean and create output directory
+    try {
+      await rm(this.outputPath, { recursive: true, force: true });
+    } catch (e) {}
     await mkdir(this.outputPath, { recursive: true });
     
     let idx = 0;
     for (const result of results) {
-      const allureResult = this.convertToAllure(result, idx++);
+      const allureResult = await this.convertToAllure(result, idx++);
       const filename = `${allureResult.uuid}-result.json`;
       const filepath = join(this.outputPath, filename);
       await writeFile(filepath, JSON.stringify(allureResult, null, 2), 'utf-8');
@@ -36,10 +38,30 @@ export class AllureReporter {
   /**
    * Convert Hop result to Allure format
    */
-  private convertToAllure(result: TestResult, index: number): AllureTestResult {
+  private async convertToAllure(result: TestResult, index: number): Promise<AllureTestResult> {
     const uuid = `hop-${Date.now()}-${index}`;
-    const start = Date.now() - result.duration;
     const stop = Date.now();
+    const start = stop - result.duration;
+    
+    const attachments: AllureAttachment[] = [];
+    
+    // Add screenshot if available
+    if (result.screenshotPath) {
+      try {
+        const screenshotName = basename(result.screenshotPath);
+        const attachmentName = `${uuid}-attachment-${screenshotName}`;
+        const destPath = join(this.outputPath, attachmentName);
+        await copyFile(result.screenshotPath, destPath);
+        
+        attachments.push({
+          name: 'Screenshot',
+          type: 'image/png',
+          source: attachmentName
+        });
+      } catch (e) {
+        console.warn(`⚠️ Failed to attach screenshot: ${result.screenshotPath}`, e);
+      }
+    }
     
     return {
       uuid,
@@ -58,22 +80,28 @@ export class AllureReporter {
       labels: [
         { name: 'feature', value: result.featureName },
         { name: 'suite', value: result.featureName },
+        { name: 'host', value: process.env.HOSTNAME || 'localhost' },
+        { name: 'thread', value: process.pid.toString() },
         ...result.tags.map(tag => ({ name: 'tag', value: tag }))
       ],
       parameters: [],
-      steps: result.steps.map(s => this.convertStep(s))
+      steps: result.steps.map(s => this.convertStep(s, start)),
+      attachments
     };
   }
 
   /**
    * Convert step to Allure format
    */
-  private convertStep(step: StepResult): AllureStep {
+  private convertStep(step: StepResult, scenarioStart: number): AllureStep {
+    const start = scenarioStart; // Approximate for now
+    const stop = start + step.duration;
+    
     return {
       name: `${step.step.keyword} ${step.step.text}`,
       status: this.mapStatus(step.status),
-      start: Date.now() - step.duration,
-      stop: Date.now(),
+      start,
+      stop,
       steps: [],
       attachments: [],
       parameters: []
@@ -117,6 +145,7 @@ interface AllureTestResult {
   labels: Array<{ name: string; value: string }>;
   parameters: unknown[];
   steps: AllureStep[];
+  attachments: AllureAttachment[];
 }
 
 interface AllureStep {
@@ -125,6 +154,12 @@ interface AllureStep {
   start: number;
   stop: number;
   steps: unknown[];
-  attachments: unknown[];
+  attachments: AllureAttachment[];
   parameters: unknown[];
+}
+
+interface AllureAttachment {
+  name: string;
+  type: string;
+  source: string;
 }

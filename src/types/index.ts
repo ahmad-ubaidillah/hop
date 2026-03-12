@@ -88,6 +88,7 @@ export interface TestResult {
   steps: StepResult[];
   tags: string[];
   screenshotPath?: string;
+  videoPath?: string;
 }
 
 export interface StepResult {
@@ -96,6 +97,7 @@ export interface StepResult {
   duration: number;
   error?: string;
   screenshotPath?: string;
+  videoPath?: string;
 }
 
 export interface HopConfig {
@@ -111,6 +113,7 @@ export interface HopConfig {
     exclude: string[];
   };
   headers: Record<string, string>;
+  reportDir?: string;
 }
 
 export interface EngineOptions {
@@ -123,6 +126,7 @@ export interface EngineOptions {
   retry: number;
   parallel: boolean;
   concurrency: number;
+  video: boolean;
   report?: 'html' | 'json' | 'junit';
   reportDir?: string;
 }
