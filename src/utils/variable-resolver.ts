@@ -35,9 +35,9 @@ export class VariableResolver {
       }
     }
 
-    const result = resolved.replace(/\$\{(\w+)\}/g, (_, name) => context.variables[name] ?? `$\{${name}\}`)
-                          .replace(/#\((\w+)\)/g, (_, name) => context.variables[name] ?? `#(${name})`)
-                          .replace(/#(\w+)/g, (_, name) => context.variables[name] ?? `#${name}`);
+    const result = resolved.replace(/\$\{(\w+)\}/g, (_, name) => context.variables[name] ?? '')
+                          .replace(/#\((\w+)\)/g, (_, name) => context.variables[name] ?? '')
+                          .replace(/#(\w+)/g, (_, name) => context.variables[name] ?? '');
 
     this.cache.set(cacheKey, result);
     return result;

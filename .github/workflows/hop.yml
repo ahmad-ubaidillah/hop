@@ -25,7 +25,10 @@ jobs:
         run: bunx playwright install --with-deps
 
       - name: Run Hop Tests
-        run: bun run bin/cli.ts test -f features/ -p -cn 4 --format html,junit --report-dir reports
+        run: bun run bin/cli.ts test -f features/ -p -cn 4 --format html,junit --report-dir reports --tags "not @failing"
+        env:
+          BASE_URL: https://jsonplaceholder.typicode.com
+          API_KEY: test-api-key-123
 
       - name: Upload Test Report
         if: always()

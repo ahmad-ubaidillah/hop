@@ -78,8 +78,8 @@ function parseEnvFile(content: string, config: EnvConfig): void {
  */
 export function resolveEnvVariables(value: string, env: EnvConfig): string {
   return value.replace(/\$\{(\w+)\}/g, (_, name) => {
-    return env[name] ?? process.env[name] ?? value;
+    return env[name] ?? process.env[name] ?? '';
   }).replace(/\$(\w+)/g, (_, name) => {
-    return env[name] ?? process.env[name] ?? value;
+    return env[name] ?? process.env[name] ?? '';
   });
 }

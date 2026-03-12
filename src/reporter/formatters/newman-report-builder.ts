@@ -76,7 +76,7 @@ export class NewmanReportBuilder {
         .nav-pills .nav-link {
             border-radius: 0;
             color: #fff;
-            background: #008c99;
+            background: #999;
             padding: 10px 20px;
             font-weight: 600;
             border: 1px solid rgba(255,255,255,0.1);
@@ -85,8 +85,21 @@ export class NewmanReportBuilder {
             background-color: #fff !important;
             color: #333 !important;
         }
+
+        /* Color-coded tabs when active */
+        .nav-pills .nav-link#pills-summary-tab.active { border-top: 3px solid #008c99; }
+        .nav-pills .nav-link#pills-requests-tab.active { border-top: 3px solid #008c99; }
+        .nav-pills .nav-link#pills-failed-tab.active { border-top: 3px solid #dc3545; }
+        .nav-pills .nav-link#pills-skipped-tab.active { border-top: 3px solid #ffc107; }
+
+        /* Color-coded tabs when not active (Newman style) */
+        #pills-summary-tab:not(.active) { background-color: #008c99; }
+        #pills-requests-tab:not(.active) { background-color: #008c99; }
+        #pills-failed-tab:not(.active) { background-color: #dc3545; }
+        #pills-skipped-tab:not(.active) { background-color: #ffc107; color: #333 !important; }
+
         .nav-container {
-            background: #008c99;
+            background: #333;
             margin-bottom: 30px;
         }
         
