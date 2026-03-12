@@ -40,12 +40,8 @@ program
   .option('--report-dir <path>', 'Directory to save reports', './reports')
   .action(async (pathArg, options) => {
     try {
-      if (typeof pathArg !== 'string') {
-        options = pathArg || {};
-        pathArg = undefined;
-      } else if (!options) {
-        options = {};
-      }
+      // Ensure options is at least an empty object
+      if (!options) options = {};
       const now = new Date();
       const timestamp = now.toISOString().replace(/[:.]/g, '-').split('T')[0] + '_' + now.toTimeString().split(' ')[0].replace(/:/g, '-');
       const baseReportDir = options.reportDir || (config as any).reportDir || './reports';
@@ -162,8 +158,16 @@ program
 
       
       // Exit with appropriate code
+      const totalRun = results.length;
       const failed = results.filter(r => r.status === 'failed').length;
-      process.exit(failed > 0 ? 1 : 0);
+      
+      if (failed > 0) {
+        console.log(`\n❌ Test run failed with ${failed} failure(s) out of ${totalRun} scenario(s).`);
+        process.exit(1);
+      } else {
+        console.log(`\n✅ Test run passed! ${totalRun} scenario(s) executed successfully.`);
+        process.exit(0);
+      }
     } catch (error) {
       console.error('❌ Error:', error instanceof Error ? error.message : error);
       process.exit(1);
