@@ -8,6 +8,7 @@ import { generateUndefinedStepMessage, type SnippetOptions } from './snippet-gen
 import { TagFilter } from '../utils/tag-filter.js';
 import { ScenarioRunner } from './scenario-runner.js';
 import { ExecutionManager } from './execution-manager.js';
+import { DebugLogger, getDebugLogger, setDebugLogger } from '../utils/debug-logger.js';
 
 export class TestEngine {
   private options: EngineOptions;
@@ -16,6 +17,7 @@ export class TestEngine {
   private scenarioRunner: ScenarioRunner;
   private executionManager: ExecutionManager;
   private undefinedSteps: SnippetOptions[] = [];
+  private debugLogger: DebugLogger;
   
   constructor(options: EngineOptions) {
     this.options = options;
@@ -27,6 +29,14 @@ export class TestEngine {
       this.envConfig, 
       this.runFeature.bind(this)
     );
+    
+    // Initialize debug logger
+    this.debugLogger = getDebugLogger();
+    this.debugLogger.setEnabled(options.debug || false);
+    if (options.breakpoint) {
+      this.debugLogger.setBreakpoints([options.breakpoint]);
+    }
+    setDebugLogger(this.debugLogger);
   }
 
   async run(features: Feature[], collector: TestResultCollector): Promise<TestResult[]> {

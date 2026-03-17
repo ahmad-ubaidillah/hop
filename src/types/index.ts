@@ -43,6 +43,7 @@ export interface Step {
   keyword: 'Given' | 'When' | 'Then' | 'And' | 'But';
   text: string;
   docString?: string;
+  docStringContentType?: string;
   dataTable?: DataTable;
   line: number;
 }
@@ -122,6 +123,8 @@ export interface EngineOptions {
   tags: string;
   env: string;
   verbose: boolean;
+  debug: boolean;
+  breakpoint?: string;
   timeout: number;
   retry: number;
   parallel: boolean;

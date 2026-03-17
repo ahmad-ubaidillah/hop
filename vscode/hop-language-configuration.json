@@ -1,0 +1,35 @@
+{
+  "comments": {
+    "lineComment": "#"
+  },
+  "brackets": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  "autoClosingPairs": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"],
+    ["\"", "\""],
+    ["'", "'"]
+  ],
+  "surroundingPairs": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"],
+    ["\"", "\""],
+    ["'", "'"]
+  ],
+  "folding": {
+    "markers": {
+      "start": "^\\s*(Feature|Background|Scenario|Rule|Examples):",
+      "end": "^\\s*$"
+    }
+  },
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*(Feature|Background|Scenario|Rule|Examples|Given|When|Then|And|But|\\*)\\s*:?",
+    "decreaseIndentPattern": "^\\s*(Given|When|Then|And|But|\\*)\\s"
+  },
+  "wordPattern": "([^\\s\\\"]+|\"[^\"]+\")"
+}

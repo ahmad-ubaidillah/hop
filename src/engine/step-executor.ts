@@ -17,6 +17,7 @@ import { AuthHandler } from './handlers/auth-handler.js';
 import { DbHandler } from './handlers/db-handler.js';
 import { AssertionHandler } from './handlers/assertion-handler.js';
 import { CoreHandler } from './handlers/core-handler.js';
+import { DataHandler } from './handlers/data-handler.js';
 import { ValueParser } from '../utils/value-parser.js';
 import { ScreenshotManager } from './screenshot-manager.js';
 
@@ -63,6 +64,7 @@ export class StepExecutor implements IStepExecutor {
     this.handlers = [
       new DbHandler(), new CoreHandler(), new HttpHandler(),
       new AssertionHandler(), new UiHandler(), new AuthHandler(),
+      new DataHandler(),
     ];
   }
 

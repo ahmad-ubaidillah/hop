@@ -2,7 +2,7 @@ import type { EnvConfig } from './env-loader.js';
 import type { TestContext } from '../types/index.js';
 import { VariableResolver } from './variable-resolver.js';
 import { ExpressionEvaluator } from './expression-evaluator.js';
-import { JsonParser } from './json-parser.ts';
+import { JsonParser } from './json-parser.js';
 
 export class ValueParser {
   private variableResolver: VariableResolver;

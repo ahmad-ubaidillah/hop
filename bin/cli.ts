@@ -30,6 +30,8 @@ program
   .option('-e, --env <env>', 'Environment to use', 'test')
   .option('-r, --report', 'Generate Allure report', true)
   .option('-v, --verbose', 'Verbose output', false)
+  .option('-d, --debug', 'Enable debug mode with detailed logging', false)
+  .option('--breakpoint <step>', 'Set breakpoint on step containing this text', '')
   .option('-frm, --format <format>', 'Output format (console, json, junit, allure, html, hop, newman)', 'console,allure,hop')
   .option('--retry <count>', 'Number of retries for failed tests', config.retry.toString())
   .option('--timeout <ms>', 'Test timeout in milliseconds', config.timeout.toString())
@@ -95,6 +97,8 @@ program
         tags: mergedOptions.tags,
         env: mergedOptions.env,
         verbose: mergedOptions.verbose,
+        debug: mergedOptions.debug || false,
+        breakpoint: mergedOptions.breakpoint,
         timeout: mergedOptions.timeout,
         retry: mergedOptions.retry,
         parallel: mergedOptions.parallel || false,
@@ -263,7 +267,7 @@ program
       // Try to find Hop Premium Report
       console.log(`\n🔍 Searching for the latest Hop Premium Report...`);
       const dirs = await readdir(baseReportDir);
-      const timestampedDirs = [];
+      const timestampedDirs: { name: string; path: string; mtime: Date }[] = [];
       
       for (const dir of dirs) {
         if (dir === 'allure-results' || dir === 'history' || dir === 'screenshots' || dir === 'videos') continue;

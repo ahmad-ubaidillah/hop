@@ -1,0 +1,64 @@
+{
+  "name": "hop-vscode",
+  "displayName": "Hop Framework",
+  "description": "VS Code extension for Hop BDD Framework with Gherkin support",
+  "version": "1.0.0",
+  "publisher": "hop-framework",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Testing"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "gherkin",
+        "aliases": ["Gherkin", "feature"],
+        "extensions": [".feature"],
+        "configuration": "./hop-language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "gherkin",
+        "scopeName": "source.gherkin",
+        "path": "./syntaxes/gherkin.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "gherkin",
+        "path": "./snippets/gherkin.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Hop Framework",
+      "properties": {
+        "hop.enableAutoComplete": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable auto-completion for step definitions"
+        },
+        "hop.enableLinting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable linting for feature files"
+        },
+        "hop.featureFilePaths": {
+          "type": "array",
+          "default": ["features/**/*.feature"],
+          "description": "Glob patterns for feature files"
+        },
+        "hop.stepDefinitionsPaths": {
+          "type": "array",
+          "default": ["steps/**/*.ts"],
+          "description": "Glob patterns for step definition files"
+        }
+      }
+    }
+  }
+}

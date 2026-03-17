@@ -38,7 +38,7 @@ export class HttpHandler implements StepHandler {
     const headersJsonMatch = text.match(/^(?:\*|Given|When|Then|And|But)?\s*headers\s+(\{[\s\S]*\})/i);
     if (headersJsonMatch) {
       try {
-        const headersObj = JSON.parse(headersJsonMatch[2]);
+        const headersObj = JSON.parse(headersJsonMatch[1]);
         for (const [key, value] of Object.entries(headersObj)) {
           context.headers[key] = executor.resolveVariables(value, context);
         }
@@ -55,7 +55,7 @@ export class HttpHandler implements StepHandler {
     const paramsJsonMatch = text.match(/^(?:\*|Given|When|Then|And|But)?\s*params\s+(\{[\s\S]*\})/i);
     if (paramsJsonMatch) {
       try {
-        const paramsObj = JSON.parse(paramsJsonMatch[2]);
+        const paramsObj = JSON.parse(paramsJsonMatch[1]);
         for (const [key, value] of Object.entries(paramsObj)) {
           context.queryParams[key] = executor.resolveVariables(value, context);
         }
@@ -79,10 +79,21 @@ export class HttpHandler implements StepHandler {
       }
       
       if (step.docString) {
-        try {
-          context.body = JSON.parse(step.docString);
-        } catch {
+        // Check if docString has content type
+        if (step.docStringContentType === 'application/json') {
+          try {
+            context.body = JSON.parse(step.docString.trim());
+          } catch {
+            context.body = step.docString;
+          }
+        } else if (step.docStringContentType === 'application/xml' || step.docString?.trim().startsWith('<')) {
           context.body = step.docString;
+        } else {
+          try {
+            context.body = JSON.parse(step.docString);
+          } catch {
+            context.body = step.docString;
+          }
         }
         return;
       }

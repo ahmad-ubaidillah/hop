@@ -9,22 +9,38 @@ export interface EnvConfig {
   [key: string]: string;
 }
 
+export interface LoadEnvOptions {
+  env?: string;
+  override?: Record<string, string>;
+  silent?: boolean;
+}
+
 /**
  * Load environment variables from .env file
  * Supports .env, .env.test, .env.staging, .env.production
  */
-export function loadEnv(env: string = 'test'): EnvConfig {
+export function loadEnv(env: string = 'test', options: LoadEnvOptions = {}): EnvConfig {
   const config: EnvConfig = {};
+  const envName = options.env || env;
   
-  // Common env file locations
+  // Priority order (later overrides earlier):
+  // 1. .env (base)
+  // 2. .env.{environment} (environment-specific)
+  // 3. .env.local (local overrides)
+  // 4. .env.{environment}.local (highest priority)
+  // 5. CLI overrides (highest priority)
   const envFilePaths = [
     path.resolve(process.cwd(), '.env'),
-    path.resolve(process.cwd(), `.env.${env}`),
+    path.resolve(process.cwd(), `.env.${envName}`),
     path.resolve(process.cwd(), '.env.local'),
+    path.resolve(process.cwd(), `.env.${envName}.local`),
   ];
   
   for (const envFilePath of envFilePaths) {
     if (fs.existsSync(envFilePath)) {
+      if (!options.silent) {
+        console.log(`📄 Loading environment from: ${path.basename(envFilePath)}`);
+      }
       const content = fs.readFileSync(envFilePath, 'utf-8');
       parseEnvFile(content, config);
     }
@@ -35,6 +51,13 @@ export function loadEnv(env: string = 'test'): EnvConfig {
   for (const key of Object.keys(process.env)) {
     if (process.env[key]) {
       config[key] = process.env[key]!;
+    }
+  }
+  
+  // CLI overrides (highest priority)
+  if (options.override) {
+    for (const [key, value] of Object.entries(options.override)) {
+      config[key] = value;
     }
   }
   
@@ -82,4 +105,27 @@ export function resolveEnvVariables(value: string, env: EnvConfig): string {
   }).replace(/\$(\w+)/g, (_, name) => {
     return env[name] ?? process.env[name] ?? '';
   });
+}
+
+/**
+ * Get environment variable with fallback
+ */
+export function getEnvVar(key: string, fallback: string = '', env: EnvConfig = {}): string {
+  return env[key] ?? process.env[key] ?? fallback;
+}
+
+/**
+ * Check if environment is production
+ */
+export function isProduction(env: EnvConfig = {}): boolean {
+  const nodeEnv = env.NODE_ENV || process.env.NODE_ENV || '';
+  return nodeEnv.toLowerCase() === 'production';
+}
+
+/**
+ * Check if environment is development
+ */
+export function isDevelopment(env: EnvConfig = {}): boolean {
+  const nodeEnv = env.NODE_ENV || process.env.NODE_ENV || '';
+  return nodeEnv.toLowerCase() === 'development' || nodeEnv === '';
 }

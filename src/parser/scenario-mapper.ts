@@ -9,7 +9,23 @@ export class ScenarioMapper {
       text: step.text,
       line: step.location?.line || 0,
     };
-    if (step.docString) result.docString = step.docString.content;
+    if (step.docString) {
+      result.docString = step.docString.content;
+      // Support Gherkin docString with content type: """application/json
+      // or """application/xml
+      if (step.docString.mediaType) {
+        result.docStringContentType = step.docString.mediaType;
+      } else if (step.docString.content?.trim().startsWith('{') || step.docString.content?.trim().startsWith('[')) {
+        // Try to detect JSON content
+        try {
+          JSON.parse(step.docString.content.trim());
+          result.docStringContentType = 'application/json';
+        } catch {}
+      } else if (step.docString.content?.trim().startsWith('<')) {
+        // Try to detect XML content
+        result.docStringContentType = 'application/xml';
+      }
+    }
     if (step.dataTable) result.dataTable = this.convertDataTable(step.dataTable);
     return result;
   }

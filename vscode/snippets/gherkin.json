@@ -1,0 +1,123 @@
+{
+  "Feature": {
+    "prefix": "feature",
+    "body": [
+      "Feature: ${1:Feature name}",
+      "  As a ${2:role}",
+      "  I want to ${3:action}",
+      "  So that ${4:benefit}",
+      "",
+      "  Background:",
+      "    Given ${5:some precondition}",
+      "",
+      "  Scenario: ${6:Scenario name}",
+      "    Given ${7:some condition}",
+      "    When ${8:some action}",
+      "    Then ${9:some expected result}"
+    ],
+    "description": "Create a new Feature with Background and Scenario"
+  },
+  "Scenario": {
+    "prefix": "scenario",
+    "body": [
+      "Scenario: ${1:Scenario name}",
+      "  Given ${2:some condition}",
+      "  When ${3:some action}",
+      "  Then ${4:some expected result}"
+    ],
+    "description": "Create a new Scenario"
+  },
+  "Scenario Outline": {
+    "prefix": "scenario-outline",
+    "body": [
+      "Scenario Outline: ${1:Scenario name}",
+      "  Given ${2:some condition} with \"${3:value}\"",
+      "  When ${4:some action}",
+      "  Then ${5:some expected result}",
+      "",
+      "  Examples:",
+      "    | value |",
+      "    | ${6:value1} |",
+      "    | ${7:value2} |"
+    ],
+    "description": "Create a Scenario Outline with Examples"
+  },
+  "Given": {
+    "prefix": "given",
+    "body": "Given ${1:some precondition}",
+    "description": "Create a Given step"
+  },
+  "When": {
+    "prefix": "when",
+    "body": "When ${1:some action}",
+    "description": "Create a When step"
+  },
+  "Then": {
+    "prefix": "then",
+    "body": "Then ${1:some expected result}",
+    "description": "Create a Then step"
+  },
+  "And": {
+    "prefix": "and",
+    "body": "And ${1:additional step}",
+    "description": "Create an And step"
+  },
+  "But": {
+    "prefix": "but",
+    "body": "But ${1:contrast step}",
+    "description": "Create a But step"
+  },
+  "Data Table": {
+    "prefix": "table",
+    "body": [
+      "  Given something with data:",
+      "    | ${1:header1} | ${2:header2} |",
+      "    | ${3:value1}   | ${4:value2}   |"
+    ],
+    "description": "Create a Data Table"
+  },
+  "DocString": {
+    "prefix": "docstring",
+    "body": [
+      "\"\"\"",
+      "${1:content}",
+      "\"\"\""
+    ],
+    "description": "Create a DocString"
+  },
+  "Background": {
+    "prefix": "background",
+    "body": [
+      "Background:",
+      "  Given ${1:precondition 1}",
+      "  And ${2:precondition 2}"
+    ],
+    "description": "Create a Background section"
+  },
+  "Rule": {
+    "prefix": "rule",
+    "body": [
+      "Rule: ${1:Rule name}",
+      "  As a ${2:role}",
+      "  I want to ${3:feature}",
+      "  So that ${4:benefit}",
+      "",
+      "  Scenario: ${5:Scenario name}",
+      "    Given ${6:condition}",
+      "    When ${7:action}",
+      "    Then ${8:result}"
+    ],
+    "description": "Create a Rule with Scenario"
+  },
+  "Tagged Scenario": {
+    "prefix": "tagged-scenario",
+    "body": [
+      "@${1:tag}",
+      "Scenario: ${2:Scenario name}",
+      "  Given ${3:condition}",
+      "  When ${4:action}",
+      "  Then ${5:result}"
+    ],
+    "description": "Create a tagged Scenario"
+  }
+}

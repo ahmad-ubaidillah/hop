@@ -1,0 +1,178 @@
+# Azure DevOps Pipeline for Hop Framework
+# Add this to azure-pipelines.yml in your repo
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+      - 'release/*'
+  paths:
+    exclude:
+      - '*.md'
+      - 'docs/**'
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+variables:
+  nodeVersion: '20'
+  bunVersion: 'latest'
+  npm_config_cache: $(Pipeline.Workspace)/.npm
+
+stages:
+  - stage: Install
+    displayName: Install Dependencies
+    jobs:
+      - job: Install
+        displayName: Install and Cache
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+            displayName: 'Use Node.js'
+          - task: Cache@2
+            inputs:
+              key: 'bun | "$(Agent.OS)" | bun.lock'
+              path: .bun
+            displayName: 'Cache Bun'
+          - bash: |
+              npm install -g bun
+              bun install --frozen-lockfile
+            displayName: 'Install Dependencies'
+
+  - stage: Test
+    displayName: Run Tests
+    jobs:
+      - job: UnitTests
+        displayName: Unit Tests
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+          - bash: bun test
+            displayName: 'Run Unit Tests'
+          - publish: reports/
+            artifact: test-reports
+
+      - job: ParallelTests
+        displayName: Parallel Tests
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+          - bash: bun run test:parallel --workers 4
+            displayName: 'Run Parallel Tests'
+
+      - job: UITests
+        displayName: UI Tests
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+          - bash: |
+              bun run test:ui
+              bun run test:visual
+            displayName: 'Run UI Tests'
+
+      - job: IntegrationTests
+        displayName: Integration Tests
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+          - bash: bun run test:integration
+            displayName: 'Run Integration Tests'
+
+      - job: BrowserStackTests
+        displayName: BrowserStack Tests
+        pool:
+          vmImage: 'ubuntu-latest'
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+          - bash: bun run test:browserstack
+            env:
+              BROWSERSTACK_USERNAME: $(BROWSERSTACK_USERNAME)
+              BROWSERSTACK_ACCESS_KEY: $(BROWSERSTACK_ACCESS_KEY)
+            displayName: 'Run BrowserStack Tests'
+
+  - stage: Lint
+    displayName: Lint & TypeCheck
+    jobs:
+      - job: Lint
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+          - bash: |
+              bun run lint
+              bun run typecheck
+            displayName: 'Lint and TypeCheck'
+
+  - stage: Report
+    displayName: Generate Reports
+    jobs:
+      - job: Reports
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+          - bash: |
+              bun run report:html
+              bun run report:junit
+              bun run report:json
+            displayName: 'Generate Reports'
+          - publish: reports/
+            artifact: test-reports
+          - publish: html-report/
+            artifact: html-report
+
+  - stage: Security
+    displayName: Security Scan
+    jobs:
+      - job: Security
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(nodeVersion)'
+          - bash: npm audit --audit-level=moderate
+            displayName: 'Security Audit'
+          - task: DependencyCheck@2
+            inputs:
+              scanPath: '$(Build.SourcesDirectory)'
+              format: 'HTML'
+              outputDirectory: '$(Build.ArtifactStagingDirectory)/security'
+            displayName: 'OWASP Dependency Check'
+
+  - stage: Deploy
+    displayName: Deploy
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: Deploy
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - bash: echo "Deploy to production"
+            displayName: 'Deploy'

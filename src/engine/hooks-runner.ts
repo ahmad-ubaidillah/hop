@@ -28,7 +28,7 @@ export class HooksRunner {
   /**
    * Load hooks from the hooks directory
    */
-  private loadHooks(): void {
+  private async loadHooks(): Promise<void> {
     try {
       // Try to load hooks from the hooks directory
       const hooksFile = path.resolve(process.cwd(), this.hooksPath);
@@ -43,12 +43,12 @@ export class HooksRunner {
           const hooksPath = path.join(hooksFile, 'hooks.ts');
           
           if (fs.existsSync(indexPath)) {
-            this.importHooks(indexPath);
+            await this.importHooks(indexPath);
           } else if (fs.existsSync(hooksPath)) {
-            this.importHooks(hooksPath);
+            await this.importHooks(hooksPath);
           }
         } else if (hooksFile.endsWith('.ts') || hooksFile.endsWith('.js')) {
-          this.importHooks(hooksFile);
+          await this.importHooks(hooksFile);
         }
       }
     } catch (error) {
@@ -62,10 +62,10 @@ export class HooksRunner {
   /**
    * Import hooks from a file
    */
-  private importHooks(filePath: string): void {
+  private async importHooks(filePath: string): Promise<void> {
     try {
       // Dynamic import for ES modules
-      const hooksModule = require(filePath);
+      const hooksModule = await import(filePath);
       
       this.hooks = {
         beforeAll: hooksModule.beforeAll,

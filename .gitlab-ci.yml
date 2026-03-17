@@ -1,0 +1,165 @@
+# GitLab CI/CD template for Hop Framework
+# Add this to your .gitlab-ci.yml or include from another project
+
+variables:
+  HOP_VERSION: "latest"
+  NODE_VERSION: "20"
+
+.stages:
+  - install
+  - test
+  - report
+  - build
+
+install_dependencies:
+  stage: install
+  image: node:${NODE_VERSION}-alpine
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+      - .bun/
+  script:
+    - npm install -g bun
+    - bun install --frozen-lockfile
+  artifacts:
+    paths:
+      - node_modules/
+      - .bun/
+    expire_in: 1 hour
+
+run_tests:
+  stage: test
+  image: node:${NODE_VERSION}-alpine
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+      - .bun/
+  script:
+    - bun test
+  coverage: '/Total:.*? (100(?:\.0+)?%|«?\d+(?:\.\d+)?%)/'
+  artifacts:
+    paths:
+      - reports/
+      - allure-results/
+    reports:
+      junit: reports/junit.xml
+      cobertura: reports/cobertura-coverage.xml
+    expire_in: 7 days
+  parallel:
+    matrix:
+      - TEST_SUITE: "api"
+      - TEST_SUITE: "ui"
+      - TEST_SUITE: "integration"
+
+run_tests_parallel:
+  stage: test
+  image: node:${NODE_VERSION}-alpine
+  script:
+    - bun run test:parallel --workers 4
+  artifacts:
+    paths:
+      - reports/
+    expire_in: 7 days
+
+generate_reports:
+  stage: report
+  image: node:${NODE_VERSION}-alpine
+  script:
+    - bun run report:html
+    - bun run report:json
+    - bun run report:junit
+  artifacts:
+    paths:
+      - reports/
+    expire_in: 30 days
+  needs:
+    - run_tests
+
+allure_report:
+  stage: report
+  image: node:${NODE_VERSION}-alpine
+  script:
+    - bun run report:allure
+  artifacts:
+    paths:
+      - allure-report/
+    expire_in: 30 days
+
+visual_regression_tests:
+  stage: test
+  image: node:${NODE_VERSION}-alpine
+  script:
+    - bun run test:visual
+    - bun run test:visual:update
+  artifacts:
+    paths:
+      - visual-diffs/
+    expire_in: 7 days
+
+load_tests:
+  stage: test
+  image: node:${NODE_VERSION}-alpine
+  script:
+    - bun run test:load
+  artifacts:
+    paths:
+      - load-test-results/
+    expire_in: 7 days
+  only:
+    - main
+    - schedules
+
+security_scan:
+  stage: test
+  image: node:${NODE_VERSION}-alpine
+  script:
+    - npm audit --audit-level=high
+    - npm audit --audit-level=moderate
+  allow_failure: true
+
+lint_and_typecheck:
+  stage: install
+  image: node:${NODE_VERSION}-alpine
+  script:
+    - bun run lint
+    - bun run typecheck
+
+# Cross-browser testing matrix
+browserstack_tests:
+  stage: test
+  image: node:${NODE_VERSION}-alpine
+  script:
+    - bun run test:browserstack
+  environment:
+    name: browserstack
+  variables:
+    BROWSERSTACK_USERNAME: ${BROWSERSTACK_USERNAME}
+    BROWSERSTACK_ACCESS_KEY: ${BROWSERSTACK_ACCESS_KEY}
+  artifacts:
+    paths:
+      - reports/
+    expire_in: 7 days
+
+# Performance benchmarks
+performance_benchmark:
+  stage: test
+  image: node:${NODE_VERSION}-alpine
+  script:
+    - bun run benchmark
+  artifacts:
+    paths:
+      - benchmarks/
+    expire_in: 30 days
+
+# Contract testing
+contract_tests:
+  stage: test
+  image: node:${NODE_VERSION}-alpine
+  script:
+    - bun run test:contract
+  artifacts:
+    paths:
+      - contracts/
+    expire_in: 7 days

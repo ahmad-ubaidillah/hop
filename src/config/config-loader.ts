@@ -33,9 +33,17 @@ export interface CliOptions {
   tags?: string;
   env?: string;
   verbose?: boolean;
+  debug?: boolean;
+  breakpoint?: string;
   report?: boolean;
   reportDir?: string;
   video?: boolean;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
 }
 
 const DEFAULT_CONFIG: HopConfig = {
@@ -126,6 +134,8 @@ export function mergeOptions(config: HopConfig, cliOptions: CliOptions): Require
     tags: cliOptions.tags || getTagString(config.tags),
     env: cliOptions.env || 'test',
     verbose: cliOptions.verbose || false,
+    debug: cliOptions.debug || false,
+    breakpoint: cliOptions.breakpoint || '',
     report: cliOptions.report || false,
     reportDir: cliOptions.reportDir || config.reports,
     video: cliOptions.video || false,
@@ -147,4 +157,93 @@ function getTagString(tags: { include: string[]; exclude: string[] }): string {
  */
 export function getEnvConfig(config: HopConfig, env: string): Record<string, any> {
   return config.environments[env] || {};
+}
+
+/**
+ * Validate configuration
+ */
+export function validateConfig(config: HopConfig): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  
+  // Validate timeout
+  if (config.timeout < 0) {
+    errors.push('timeout must be a positive number');
+  } else if (config.timeout < 1000) {
+    warnings.push('timeout less than 1000ms may be too short for most tests');
+  }
+  
+  // Validate retry
+  if (config.retry < 0) {
+    errors.push('retry must be a non-negative number');
+  } else if (config.retry > 10) {
+    warnings.push('retry value greater than 10 may significantly slow down test execution');
+  }
+  
+  // Validate parallel
+  if (config.parallel < 1) {
+    errors.push('parallel must be at least 1');
+  } else if (config.parallel > 20) {
+    warnings.push('parallel value greater than 20 may cause resource issues');
+  }
+  
+  // Validate features path
+  if (!config.features) {
+    errors.push('features path is required');
+  } else if (!path.isAbsolute(config.features) && !config.features.startsWith('.')) {
+    warnings.push('features path should be absolute or relative (starting with .)');
+  }
+  
+  // Validate steps path
+  if (!config.steps) {
+    errors.push('steps path is required');
+  } else if (!path.isAbsolute(config.steps) && !config.steps.startsWith('.')) {
+    warnings.push('steps path should be absolute or relative (starting with .)');
+  }
+  
+  // Validate format
+  const validFormats = ['html', 'json', 'junit', 'allure', 'cucumber'];
+  for (const format of config.format) {
+    if (!validFormats.includes(format.toLowerCase())) {
+      warnings.push(`Unknown format '${format}'. Valid formats: ${validFormats.join(', ')}`);
+    }
+  }
+  
+  // Validate tags
+  if (config.tags.include.length > 0) {
+    for (const tag of config.tags.include) {
+      if (!tag.startsWith('@')) {
+        warnings.push(`Tag '${tag}' should start with '@'`);
+      }
+    }
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+  };
+}
+
+/**
+ * Validate and log config issues
+ */
+export function validateConfigWithLogging(config: HopConfig): ValidationResult {
+  const result = validateConfig(config);
+  
+  if (result.warnings.length > 0) {
+    console.warn('⚠️  Configuration warnings:');
+    result.warnings.forEach(w => console.warn(`  - ${w}`));
+  }
+  
+  if (result.errors.length > 0) {
+    console.error('❌ Configuration errors:');
+    result.errors.forEach(e => console.error(`  - ${e}`));
+  }
+  
+  if (result.valid) {
+    console.log('✅ Configuration validation passed');
+  }
+  
+  return result;
 }

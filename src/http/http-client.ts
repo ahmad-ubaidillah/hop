@@ -135,10 +135,16 @@ export class HttpClient {
     const cookies: Record<string, string> = {};
     const setCookie = response.headers.get('set-cookie');
     if (setCookie) {
-      const parts = setCookie.split(';');
-      if (parts.length > 0) {
-        const [n, v] = parts[0].split('=');
-        cookies[n] = v;
+      // Handle multiple cookies separated by comma
+      const cookieStrings = setCookie.split(/,(?=[^\s])/);
+      for (const cookieStr of cookieStrings) {
+        const parts = cookieStr.split(';');
+        if (parts.length > 0) {
+          const [n, v] = parts[0].split('=');
+          if (n && v) {
+            cookies[n.trim()] = v.trim();
+          }
+        }
       }
     }
     

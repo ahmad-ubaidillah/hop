@@ -1,0 +1,197 @@
+# CircleCI Configuration for Hop Framework
+# Add this to .circleci/config.yml in your repo
+
+version: 2.1
+
+orbs:
+  node: circleci/node@5.1.0
+  browser-tools: circleci/browser-tools@1.4.0
+
+executors:
+  bun-executor:
+    docker:
+      - image: oven/bun:1
+    working_directory: ~/app
+
+  node-executor:
+    docker:
+      - image: cimg/node:20.15.0
+    working_directory: ~/app
+
+jobs:
+  install:
+    executor: bun-executor
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "bun.lock" }}
+            - v1-dependencies-
+      - run:
+          name: Install Dependencies
+          command: bun install --frozen-lockfile
+      - save_cache:
+          key: v1-dependencies-{{ checksum "bun.lock" }}
+          paths:
+            - node_modules
+            - .bun
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+
+  lint:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Lint and TypeCheck
+          command: |
+            npm install -g bun
+            bun run lint
+            bun run typecheck
+
+  test:
+    executor: bun-executor
+    parallelism: 4
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run Tests
+          command: bun test
+      - run:
+          name: Run Tests with Coverage
+          command: bun test --coverage
+      - store_test_results:
+          path: reports/
+      - store_artifacts:
+          path: reports/
+
+  test_parallel:
+    executor: bun-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run Parallel Tests
+          command: bun run test:parallel --workers 4
+
+  test_ui:
+    executor: bun-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - browser-tools/install-chrome
+      - run:
+          name: Run UI Tests
+          command: bun run test:ui
+
+  test_visual:
+    executor: bun-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run Visual Regression Tests
+          command: |
+            bun run test:visual
+      - store_artifacts:
+          path: visual-diffs/
+
+  test_load:
+    executor: bun-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run Load Tests
+          command: bun run test:load
+      - store_artifacts:
+          path: load-test-results/
+
+  test_browserstack:
+    executor: bun-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run BrowserStack Tests
+          command: |
+            export BROWSERSTACK_USERNAME=$BROWSERSTACK_USERNAME
+            export BROWSERSTACK_ACCESS_KEY=$BROWSERSTACK_ACCESS_KEY
+            bun run test:browserstack
+      - store_artifacts:
+          path: reports/
+
+  security_scan:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Security Audit
+          command: |
+            npm audit --audit-level=moderate
+
+  generate_reports:
+    executor: bun-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Generate Reports
+          command: |
+            bun run report:html
+            bun run report:junit
+            bun run report:json
+      - store_artifacts:
+          path: reports/
+      - store_artifacts:
+          path: html-report/
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - install
+      - lint:
+          requires:
+            - install
+      - test:
+          requires:
+            - install
+      - test_parallel:
+          requires:
+            - install
+      - test_ui:
+          requires:
+            - install
+      - test_visual:
+          requires:
+            - install
+      - generate_reports:
+          requires:
+            - test
+            - test_parallel
+      - security_scan:
+          requires:
+            - install
+
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - install
+      - test_load:
+          requires:
+            - install
+      - test_browserstack:
+          requires:
+            - install

@@ -38,9 +38,17 @@ export class CsvParser {
     
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
+      const nextChar = line[i + 1];
       
       if (char === '"') {
-        inQuotes = !inQuotes;
+        if (inQuotes && nextChar === '"') {
+          // Escaped quote - add the quote and skip next
+          current += '"';
+          i++;
+        } else {
+          // Toggle quote state
+          inQuotes = !inQuotes;
+        }
       } else if (char === delimiter && !inQuotes) {
         result.push(current.trim());
         current = '';

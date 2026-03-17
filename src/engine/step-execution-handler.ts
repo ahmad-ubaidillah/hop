@@ -2,8 +2,11 @@ import type { Step, TestContext, StepResult } from '../types/index.js';
 import { StepExecutor } from './step-executor.js';
 import { HooksRunner } from './hooks-runner.js';
 import { type SnippetOptions } from './snippet-generator.js';
+import { getDebugLogger } from '../utils/debug-logger.js';
 
 export class StepExecutionHandler {
+  private debugLogger = getDebugLogger();
+
   constructor(
     private hooksRunner: HooksRunner,
     private undefinedSteps: SnippetOptions[]
@@ -11,6 +14,15 @@ export class StepExecutionHandler {
 
   public async execute(step: Step, context: TestContext, scenarioName: string, executor: StepExecutor): Promise<StepResult> {
     const startTime = Date.now();
+    
+    // Debug: Log step execution
+    this.debugLogger.logStep(step, context);
+    
+    // Check for breakpoint
+    if (this.debugLogger.isBreakpoint(step.text)) {
+      this.debugLogger.logBreakpoint(step);
+    }
+    
     await this.hooksRunner.beforeStep(step, context);
     try {
       await executor.executeStep(step, context);
@@ -18,6 +30,14 @@ export class StepExecutionHandler {
       await this.hooksRunner.afterStep(step, context, { status: 'passed' });
       return result;
     } catch (error) {
+      // Debug: Log error with context
+      this.debugLogger.logError(error instanceof Error ? error : new Error(String(error)), context);
+      
+      // Format and display context on failure
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const contextInfo = this.debugLogger.formatContextForFailure(context, step, errorMessage);
+      console.log(contextInfo);
+      
       let screenshotPath;
       let videoPath;
       try {
@@ -39,7 +59,7 @@ export class StepExecutionHandler {
         step,
         status: 'failed',
         duration: Date.now() - startTime,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         screenshotPath,
         videoPath,
       };

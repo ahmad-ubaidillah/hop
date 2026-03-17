@@ -1,0 +1,123 @@
+# Bitbucket Pipelines Configuration for Hop Framework
+# Add this to bitbucket-pipelines.yml in your repo
+
+image: oven/bun:1
+
+definitions:
+  caches:
+    bun: .bun
+    node: node_modules
+
+  steps:
+    - step: &install-dependencies
+        name: Install Dependencies
+        caches:
+          - bun
+        script:
+          - bun install --frozen-lockfile
+        artifacts:
+          - .bun/**
+          - node_modules/**
+
+    - step: &run-tests
+        name: Run Tests
+        caches:
+          - bun
+        script:
+          - bun test
+        artifacts:
+          - reports/**
+
+    - step: &run-parallel-tests
+        name: Run Parallel Tests
+        caches:
+          - bun
+        script:
+          - bun run test:parallel --workers 4
+
+    - step: &run-ui-tests
+        name: Run UI Tests
+        caches:
+          - bun
+        script:
+          - bun run test:ui
+
+    - step: &generate-reports
+        name: Generate Reports
+        caches:
+          - bun
+        script:
+          - bun run report:html
+          - bun run report:junit
+          - bun run report:json
+        artifacts:
+          - reports/**
+          - html-report/**
+
+    - step: &security-scan
+        name: Security Scan
+        image: node:20
+        script:
+          - npm audit --audit-level=moderate
+
+pipelines:
+  branches:
+    main:
+      - step:
+          name: Install & Lint
+          caches:
+            - bun
+          script:
+            - bun install --frozen-lockfile
+            - bun run lint
+            - bun run typecheck
+      - step: *run-tests
+      - step: *run-parallel-tests
+      - step: *generate-reports
+      - step: *security-scan
+
+    develop:
+      - step: *install-dependencies
+      - step: *run-tests
+      - step: *run-parallel-tests
+      - step:
+          name: Visual Regression Tests
+          caches:
+            - bun
+          script:
+            - bun run test:visual
+
+    feature/*:
+      - step: *install-dependencies
+      - step: *run-tests
+
+    release/*:
+      - step: *install-dependencies
+      - step: *run-tests
+      - step: *run-parallel-tests
+      - step: *generate-reports
+
+  pull-requests:
+    '**':
+      - step: *install-dependencies
+      - step: *run-tests
+
+  scheduled:
+    nightly-build:
+      - step: *install-dependencies
+      - step: *run-tests
+      - step: *run-parallel-tests
+      - step:
+          name: Load Tests
+          caches:
+            - bun
+          script:
+            - bun run test:load
+      - step:
+          name: BrowserStack Tests
+          caches:
+            - bun
+          script:
+            - export BROWSERSTACK_USERNAME=$BROWSERSTACK_USERNAME
+            - export BROWSERSTACK_ACCESS_KEY=$BROWSERSTACK_ACCESS_KEY
+            - bun run test:browserstack

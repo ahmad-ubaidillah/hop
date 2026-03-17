@@ -94,6 +94,8 @@ export class StepRegistry {
         }
       } else {
         // Legacy regex matching
+        // Reset lastIndex to ensure consistent matching
+        mapping.pattern.lastIndex = 0;
         if (mapping.pattern.test(text)) {
           return { handler: mapping.handler };
         }

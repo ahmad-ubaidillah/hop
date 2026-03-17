@@ -282,7 +282,7 @@ hop-project/
 ### 8.2 When to Choose What
 
 | Scenario | Recommendation |
-|----------|-----------------|
+|----------|----------------|
 | **JavaScript ecosystem** | **Hop** - Best fit |
 | **Java backend** | Karate - Native Java |
 | **Python team** | Behave - Python native |

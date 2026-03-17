@@ -1,0 +1,81 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Gherkin",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#tags"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#multiline_strings"
+    },
+    {
+      "include": "#table"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "match": "^\\s*#.*$",
+          "name": "comment.line.number-sign.gherkin"
+        }
+      ]
+    },
+    "tags": {
+      "patterns": [
+        {
+          "match": "@[\\w-]+",
+          "name": "keyword.tag.gherkin"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "match": "^\\s*(Feature|Rule)\\s*:",
+          "name": "keyword.feature.gherkin"
+        },
+        {
+          "match": "^\\s*(Background)\\s*:",
+          "name": "keyword.background.gherkin"
+        },
+        {
+          "match": "^\\s*(Scenario|Scenario Outline|Scenario Template)\\s*:",
+          "name": "keyword.scenario.gherkin"
+        },
+        {
+          "match": "^\\s*(Examples|Scenarios)\\s*:",
+          "name": "keyword.examples.gherkin"
+        },
+        {
+          "match": "^\\s*(Given|When|Then|And|But)\\s+",
+          "name": "keyword.step.gherkin"
+        }
+      ]
+    },
+    "multiline_strings": {
+      "patterns": [
+        {
+          "begin": "\"\"\"",
+          "end": "\"\"\"",
+          "name": "string.triple-quoted.gherkin"
+        }
+      ]
+    },
+    "table": {
+      "patterns": [
+        {
+          "match": "\\|.*\\|",
+          "name": "markup.table.gherkin"
+        }
+      ]
+    }
+  },
+  "scopeName": "source.gherkin"
+}
