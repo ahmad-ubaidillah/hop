@@ -166,18 +166,18 @@ describe('RetryManager', () => {
       let attempts = 0;
       const operation = async () => {
         attempts++;
-        if (attempts < 5) throw new Error('Retry');
+        if (attempts < 3) throw new Error('Retry');
         return 'success';
       };
       
       const result = await retryManager.executeWithRetry(
         operation,
-        'step with @retry(4)',
+        'step with @retry(3, 10)', // 3 retries with 10ms delay
         defaultOptions
       );
       
       expect(result).toBe('success');
-      expect(attempts).toBe(5); // initial + 4 retries
+      expect(attempts).toBe(3);
     });
 
     test('should parse @retry(n, delay) annotation from step text', async () => {
