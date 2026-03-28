@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 import * as p from '@clack/prompts';
 import color from 'picocolors';
-import { readdir, stat, readFile, mkdir, writeFile, existsSync } from 'fs/promises';
+import { readdir, stat, readFile, mkdir, writeFile } from 'fs/promises';
+import { existsSync } from 'fs';
 import { join, basename } from 'path';
 import { spawn } from 'child_process';
 import { createProject } from './lib/create-project.js';
@@ -49,12 +50,17 @@ async function main() {
       await openGUI();
       break;
     case 'init':
-      const projectName = args[1];
+      let projectName = args[1];
       if (!projectName) {
-        projectName = await p.text({
+        const name = await p.text({
           message: 'Project name:',
           placeholder: 'my-hop-tests',
         });
+        if (p.isCancel(name)) {
+          console.log(color.red('\n❌ Cancelled'));
+          return;
+        }
+        projectName = name;
       }
       if (projectName) {
         await createProject(projectName);
