@@ -234,7 +234,7 @@ ${this.generateHelperFunctions(httpCalls)}
       return '';
     }
     
-    const functions = [];
+    const functions: string[] = [];
     
     // Generate base URL function if there are relative paths
     const hasRelativePaths = uniqueUrls.some(url => url.startsWith('/'));

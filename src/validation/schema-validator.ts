@@ -4,7 +4,6 @@ export class SchemaValidator {
    */
   static async validateWithJsonSchema(actual: any, schema: any): Promise<{ valid: boolean; errors?: string[] }> {
     try {
-      // Simple JSON Schema validation implementation
       const errors: string[] = [];
       
       SchemaValidator.validateSchema(actual, schema, '', errors);
@@ -108,51 +107,89 @@ export class SchemaValidator {
   }
 
   /**
-   * Validate using ArkType schema (if available)
+   * Validate using fuzzy type matching
+   * Compatible with Hop's existing fuzzy matching syntax
    */
-  static async validateWithArkType(actual: any, schema: string): Promise<{ valid: boolean; errors?: string[] }> {
+  static async validateWithFuzzyType(actual: any, fuzzyType: string): Promise<{ valid: boolean; errors?: string[] }> {
     try {
-      const arktypeModule = await import('arktype');
-      
-      let type: any;
-      if (typeof arktypeModule === 'object') {
-        if ('type' in arktypeModule && typeof (arktypeModule as any).type === 'function') {
-          type = (arktypeModule as any).type(schema);
-        } else if ('parse' in arktypeModule && typeof (arktypeModule as any).parse === 'function') {
-          type = (arktypeModule as any).parse(schema);
-        } else {
-          return { valid: false, errors: ['ArkType API not recognized'] };
-        }
-      } else if (typeof arktypeModule === 'function') {
-        type = (arktypeModule as any)(schema);
-      } else {
-        return { valid: false, errors: ['ArkType not found'] };
-      }
-      
-      if (!type) {
-        return { valid: false, errors: ['Failed to parse ArkType schema'] };
-      }
-      
-      const result = type(actual);
-      
-      if (result && typeof result === 'object') {
-        if ('then' in result) {
-          return { valid: true };
-        }
-        if ('errors' in result) {
-          return {
-            valid: false,
-            errors: Array.isArray(result.errors) ? result.errors.map((e: any) => e.message || String(e)) : [String(result.errors)],
-          };
-        }
-      }
-      
-      return { valid: true };
+      const result = SchemaValidator.checkFuzzyType(actual, fuzzyType);
+      return { valid: result.valid, errors: result.errors };
     } catch (error) {
       return {
         valid: false,
         errors: [error instanceof Error ? error.message : String(error)],
       };
     }
+  }
+
+  /**
+   * Check fuzzy type
+   */
+  private static checkFuzzyType(actual: any, fuzzyType: string): { valid: boolean; errors?: string[] } {
+    if (fuzzyType.startsWith('#')) {
+      switch (fuzzyType.toLowerCase()) {
+        case '#string':
+          return { valid: typeof actual === 'string' };
+        case '#number':
+          return { valid: typeof actual === 'number' && !isNaN(actual) };
+        case '#boolean':
+          return { valid: typeof actual === 'boolean' };
+        case '#array':
+          return { valid: Array.isArray(actual) };
+        case '#object':
+          return { valid: typeof actual === 'object' && actual !== null && !Array.isArray(actual) };
+        case '#null':
+          return { valid: actual === null };
+        case '#present':
+          return { valid: actual !== undefined };
+        case '#uuid': {
+          if (typeof actual !== 'string') return { valid: false, errors: ['Expected string for UUID'] };
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          return { valid: uuidRegex.test(actual) };
+        }
+        case '#email': {
+          if (typeof actual !== 'string') return { valid: false, errors: ['Expected string for email'] };
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          return { valid: emailRegex.test(actual) };
+        }
+        case '#url': {
+          if (typeof actual !== 'string') return { valid: false, errors: ['Expected string for URL'] };
+          try {
+            new URL(actual);
+            return { valid: true };
+          } catch {
+            return { valid: false, errors: ['Invalid URL format'] };
+          }
+        }
+        case '#regex':
+          return { valid: typeof actual === 'string' };
+        case '#date':
+          return { valid: actual instanceof Date && !isNaN(actual.getTime()) };
+        case '#integer':
+          if (typeof actual !== 'number') return { valid: false, errors: ['Expected number'] };
+          return { valid: Number.isInteger(actual) };
+        case '#positive':
+          if (typeof actual !== 'number') return { valid: false, errors: ['Expected number'] };
+          return { valid: actual > 0 };
+        case '#negative':
+          if (typeof actual !== 'number') return { valid: false, errors: ['Expected number'] };
+          return { valid: actual < 0 };
+        case '#any':
+          return { valid: true };
+        default:
+          return { valid: false, errors: [`Unknown fuzzy type: ${fuzzyType}`] };
+      }
+    }
+
+    return { valid: false, errors: [`Unknown fuzzy type: ${fuzzyType}`] };
+  }
+
+  /**
+   * Legacy method - Validate using ArkType schema
+   * Now uses built-in fuzzy type validation
+   * @deprecated Use validateWithFuzzyType instead
+   */
+  static async validateWithArkType(actual: any, schema: string): Promise<{ valid: boolean; errors?: string[] }> {
+    return this.validateWithFuzzyType(actual, schema);
   }
 }

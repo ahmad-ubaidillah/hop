@@ -205,9 +205,26 @@ interface TestContext {
 | Library | Usage |
 |---------|-------|
 | **Allure** | Advanced reporting |
-| **ArcType** | Response validation |
 
-### 6.3 Project Structure
+### 6.3 Built-in Type Validation
+
+Hop includes **HopType**, a built-in runtime type validation library (no external dependencies needed):
+
+```typescript
+import { type } from 'hop-framework';
+
+// Define types
+const userType = type.object({
+  id: type.number(),
+  name: type.string(),
+  email: type.string().email().optional(),
+});
+
+// Validate data
+const result = userType.parse(userData);
+```
+
+### 6.4 Project Structure
 
 ```
 hop-project/

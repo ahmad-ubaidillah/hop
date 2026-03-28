@@ -1,0 +1,105 @@
+{
+  "name": "Real-World Performance Test",
+  "description": "Performance testing configuration for Hop framework using k6",
+  "scenarios": {
+    "smoke": {
+      "description": "Quick smoke test to verify system is working",
+      "vus": 1,
+      "duration": "1m",
+      "thresholds": {
+        "http_req_duration": ["p(95)<500"],
+        "http_req_failed": ["rate<0.01"]
+      }
+    },
+    "load": {
+      "description": "Normal load test",
+      "vus": 10,
+      "duration": "5m",
+      "stages": [
+        { "duration": "1m", "target": 10 },
+        { "duration": "3m", "target": 10 },
+        { "duration": "1m", "target": 0 }
+      ],
+      "thresholds": {
+        "http_req_duration": ["p(95)<1000"],
+        "http_req_failed": ["rate<0.05"]
+      }
+    },
+    "stress": {
+      "description": "Stress test to find breaking point",
+      "vus": 100,
+      "duration": "10m",
+      "stages": [
+        { "duration": "2m", "target": 20 },
+        { "duration": "2m", "target": 50 },
+        { "duration": "2m", "target": 100 },
+        { "duration": "2m", "target": 100 },
+        { "duration": "2m", "target": 0 }
+      ],
+      "thresholds": {
+        "http_req_duration": ["p(95)<2000"],
+        "http_req_failed": ["rate<0.1"]
+      }
+    },
+    "spike": {
+      "description": "Spike test with sudden load increase",
+      "vus": 200,
+      "duration": "5m",
+      "stages": [
+        { "duration": "1m", "target": 10 },
+        { "duration": "30s", "target": 200 },
+        { "duration": "1m", "target": 200 },
+        { "duration": "30s", "target": 10 },
+        { "duration": "2m", "target": 0 }
+      ],
+      "thresholds": {
+        "http_req_duration": ["p(95)<3000"],
+        "http_req_failed": ["rate<0.2"]
+      }
+    },
+    "soak": {
+      "description": "Soak test for long-running stability",
+      "vus": 20,
+      "duration": "1h",
+      "thresholds": {
+        "http_req_duration": ["p(95)<1000"],
+        "http_req_failed": ["rate<0.01"]
+      }
+    }
+  },
+  "endpoints": {
+    "jsonplaceholder": {
+      "baseUrl": "https://jsonplaceholder.typicode.com",
+      "endpoints": [
+        { "path": "/posts", "method": "GET", "weight": 40 },
+        { "path": "/users", "method": "GET", "weight": 30 },
+        { "path": "/comments", "method": "GET", "weight": 20 },
+        { "path": "/posts", "method": "POST", "weight": 10 }
+      ]
+    },
+    "reqres": {
+      "baseUrl": "https://reqres.in/api",
+      "endpoints": [
+        { "path": "/users", "method": "GET", "weight": 35 },
+        { "path": "/users/{id}", "method": "GET", "weight": 25 },
+        { "path": "/login", "method": "POST", "weight": 20 },
+        { "path": "/users", "method": "POST", "weight": 10 },
+        { "path": "/users/{id}", "method": "PUT", "weight": 10 }
+      ]
+    }
+  },
+  "thresholds": {
+    "responseTime": {
+      "p50": 200,
+      "p90": 500,
+      "p95": 1000,
+      "p99": 2000
+    },
+    "errorRate": {
+      "max": 0.05
+    },
+    "throughput": {
+      "minRps": 10
+    }
+  }
+}

@@ -38,7 +38,7 @@ export class NewmanReporter {
     const assetsDir = join(reportDir, 'assets');
     await mkdir(assetsDir, { recursive: true });
 
-    const bundledResults = [];
+    const bundledResults: TestResult[] = [];
     for (const result of results) {
       const newResult = { ...result, steps: [...result.steps] };
       
