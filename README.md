@@ -9,7 +9,8 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/hop-framework"><img src="https://img.shields.io/npm/v/hop-framework.svg" alt="NPM Version"></a>
   <a href="https://www.npmjs.com/package/hop-framework"><img src="https://img.shields.io/npm/l/hop-framework.svg" alt="License"></a>
-  <a href="https://github.com/hop-framework/hop/actions"><img src="https://github.com/hop-framework/hop/workflows/Test/badge.svg" alt="Build Status"></a>
+  <a href="https://github.com/ahmad-ubaidillah/hop/actions"><img src="https://github.com/ahmad-ubaidillah/hop/actions/workflows/test.yml/badge.svg" alt="Build Status"></a>
+  <a href="https://codecov.io/gh/ahmad-ubaidillah/hop"><img src="https://codecov.io/gh/ahmad-ubaidillah/hop/branch/main/graph/badge.svg" alt="Coverage"></a>
 </p>
 
 ---
