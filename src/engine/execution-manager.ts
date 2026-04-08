@@ -20,6 +20,7 @@ export class ExecutionManager {
   private async runSequential(features: Feature[], collector: TestResultCollector): Promise<TestResult[]> {
     const results: TestResult[] = [];
     const executor = this.createExecutor();
+    await executor.initialize();
     for (const feature of features) {
       results.push(...(await this.runFeature(feature, collector, executor)));
     }
@@ -33,6 +34,7 @@ export class ExecutionManager {
     const featurePromises = chunks.map(async (chunk) => {
       const workerLogger = new BufferedLogger();
       const workerExecutor = this.createExecutor(workerLogger);
+      await workerExecutor.initialize();
       const chunkResults: TestResult[] = [];
       for (const feature of chunk) {
         chunkResults.push(...(await this.runFeature(feature, collector, workerExecutor)));

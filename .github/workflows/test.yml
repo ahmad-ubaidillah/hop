@@ -58,5 +58,8 @@ jobs:
       - name: Install Dependencies
         run: bun install
 
-      - name: Run TypeScript Check
+      - name: TypeScript Type Check
+        run: bun run prepare
+
+      - name: Run TypeScript Build
         run: bun run build

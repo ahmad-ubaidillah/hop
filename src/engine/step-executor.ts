@@ -68,6 +68,10 @@ export class StepExecutor implements IStepExecutor {
     ];
   }
 
+  async initialize(): Promise<void> {
+    await this.stepRegistry.loadCustomSteps();
+  }
+
   public getLogger(): Logger { return this.logger; }
   public getHttpClient(): HttpClient { return this.httpClient; }
   public getValidator(): ResponseValidator { return this.validator; }

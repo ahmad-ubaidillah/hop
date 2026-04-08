@@ -111,19 +111,62 @@ export default {
     
     // Create custom steps template
     const customSteps = `// steps/custom-steps.ts
-// Define custom step definitions here
+// Define your custom step definitions here
+// All .ts files in steps/ folder will be auto-loaded
 
 export default {
-  // Example: Custom step
-  // 'Given I am logged in as user {string}': async (step, context) => {
-  //   const username = step.text.match(/user '(.+)'/)?.[1];
-  //   // Implement your step logic
-  // }
+  // Example: Custom step with Cucumber expression
+  // 'Given I am logged in as user {string}': async (step, context, params) => {
+  //   const username = params.string;
+  //   context.variables['currentUser'] = username;
+  // },
 }
+
+// You can also create separate files for organization:
+// steps/api.ts - API-specific steps
+// steps/auth.ts - Authentication steps
+// steps/ui.ts - UI interaction steps
 `;
-    
+
     await writeFile(`${projectName}/steps/custom-steps.ts`, customSteps, 'utf-8');
     console.log(`Created: ${projectName}/steps/custom-steps.ts`);
+
+    // Create example step files
+    const apiSteps = `// steps/api.ts
+// API-specific custom steps
+
+export default {
+  'Given I set API base to {string}': async (step, context, params) => {
+    context.baseUrl = params.string;
+  },
+  
+  'Then response time is under {int}ms': async (step, context, params) => {
+    const duration = (context.response as any)?.duration;
+    if (duration > params.int) {
+      throw new Error(\`Response time \${duration}ms exceeds \${params.int}ms\`);
+    }
+  },
+};
+`;
+
+    await writeFile(`${projectName}/steps/api.ts`, apiSteps, 'utf-8');
+    console.log(`Created: ${projectName}/steps/api.ts`);
+
+    const authSteps = `// steps/auth.ts
+// Authentication custom steps
+
+export default {
+  'Given I am authenticated with token {string}': async (step, context, params) => {
+    context.headers = {
+      ...context.headers,
+      'Authorization': \`Bearer \${params.string}\`
+    };
+  },
+};
+`;
+
+    await writeFile(`${projectName}/steps/auth.ts`, authSteps, 'utf-8');
+    console.log(`Created: ${projectName}/steps/auth.ts`);
     
     console.log('');
     console.log('✅ Project initialized successfully!');

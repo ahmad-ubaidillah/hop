@@ -3,20 +3,39 @@
   "version": "1.0.0",
   "description": "High-performance BDD automation testing framework",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
   "bin": {
-    "hop": "./bin/cli.js",
-    "hop-framework": "./bin/cli.js",
-    "create-hop": "./bin/create-hop.js"
+    "hop": "./bin/cli.ts",
+    "create-hop": "./bin/create-hop.ts"
   },
-  "files": [
-    "dist",
-    "bin",
-    "README.md",
-    "LICENSE"
-  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./cli": "./bin/cli.ts",
+    "./types": "./src/types/index.ts",
+    "./parser": "./src/parser/gherkin-parser.js",
+    "./engine": "./src/engine/test-engine.js",
+    "./http": "./src/http/http-client.js",
+    "./ui": "./src/ui/playwright-client.js",
+    "./reporters": "./src/reporter/json-reporter.js",
+    "./validation": "./src/validation/response-validator.js",
+    "./utils": "./src/utils/env-loader.js",
+    "./config": "./src/config/config-loader.js",
+    "./generators": "./src/generators/k6-generator.js",
+    "./mock": "./src/mock/mock-server.js",
+    "./auth": "./src/auth/auth-manager.js",
+    "./db": "./src/db/db-manager.js"
+  },
+  "types": "./src/types/index.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ahmad-ubaidillah/hop.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  },
   "scripts": {
+    "postinstall": "playwright install chromium || echo 'Run: npx playwright install chromium'",
+    "prepare": "tsc --noEmit",
     "build": "tsc",
     "build:bin": "bun build bin/cli.ts --outdir bin --target bun --external playwright-core --external electron --external chromium-bidi && bun build bin/create-hop.ts --outdir bin --target bun",
     "test": "bun test",
@@ -31,7 +50,8 @@
     "dotenv": "^17.3.1",
     "eta": "^3.5.0",
     "fast-xml-parser": "^5.5.6",
-    "picocolors": "^1.1.1"
+    "picocolors": "^1.1.1",
+    "playwright": "^1.40.0"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.3.0",
@@ -39,9 +59,6 @@
     "@types/node": "^20.0.0",
     "allure-commandline": "^2.37.0",
     "typescript": "^5.3.0"
-  },
-  "peerDependencies": {
-    "playwright-core": "^1.40.0"
   },
   "engines": {
     "node": ">=18.0.0"

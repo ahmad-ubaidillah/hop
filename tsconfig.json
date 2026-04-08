@@ -28,7 +28,10 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "types": ["bun-types"]
+    "types": ["bun-types"],
+    "paths": {
+      "playwright": ["./src/types/shim.d.ts"]
+    }
   },
   "include": ["src/**/*", "bin/**/*", "features/**/*", "steps/**/*", "hooks/**/*"]
 }

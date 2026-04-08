@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { Command } from 'commander';
 import { parseArgs } from 'util';
 import { GherkinParser } from '../src/parser/gherkin-parser.js';
@@ -308,6 +308,111 @@ program
         console.error('❌ Failed to start report server:', err.message);
       });
 
+    } catch (error) {
+      console.error('❌ Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('record')
+  .description('Record browser actions and generate feature file')
+  .option('-o, --output <path>', 'Output feature file path', './features/recorded.feature')
+  .option('-b, --browser <browser>', 'Browser to use (chromium, firefox, webkit)', 'chromium')
+  .option('-u, --url <url>', 'Initial URL to open')
+  .option('--headless', 'Run browser in headless mode', false)
+  .option('--slow-mo <ms>', 'Slow down operations by ms', '50')
+  .action(async (options) => {
+    try {
+      const { Recorder } = await import('../src/recorder/recorder.js');
+      const recorder = new Recorder({
+        outputPath: options.output,
+        browser: options.browser,
+        headless: options.headless,
+        slowMo: parseInt(options.slowMo),
+        baseURL: options.url,
+      });
+      
+      console.log('🎬 Hop Recorder - Starting browser...');
+      console.log('');
+      
+      await recorder.start();
+      await recorder.save(options.output);
+      
+      console.log('');
+      console.log('✨ Recording complete! You can now run:');
+      console.log(`   hop test -f ${options.output}`);
+      
+      process.exit(0);
+    } catch (error) {
+      console.error('❌ Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program.parse();
+
+program
+  .command('import-openapi')
+  .description('Import tests from OpenAPI/Swagger specification')
+  .option('-i, --input <path>', 'OpenAPI spec file path (JSON or YAML)')
+  .option('-o, --output <path>', 'Output feature file path', './features/openapi.feature')
+  .option('-b, --base-url <url>', 'Base URL for API')
+  .action(async (options) => {
+    try {
+      const { readFileSync } = await import('fs');
+      const { OpenAPIImporter } = await import('../src/utils/openapi-importer.js');
+      
+      if (!options.input) {
+        console.error('❌ Please specify input file with -i or --input');
+        process.exit(1);
+      }
+      
+      console.log(`📥 Importing from OpenAPI: ${options.input}`);
+      
+      const spec = JSON.parse(readFileSync(options.input, 'utf-8'));
+      const importer = new OpenAPIImporter(spec, { baseUrl: options.baseUrl });
+      const featureContent = importer.generateFeature();
+      
+      const { writeFile, mkdir } = await import('fs/promises');
+      const dir = options.output.replace(/\/[^/]+$/, '');
+      await mkdir(dir, { recursive: true });
+      await writeFile(options.output, featureContent, 'utf-8');
+      
+      console.log(`✅ Generated feature file from OpenAPI`);
+      console.log(`   Output: ${options.output}`);
+      
+      process.exit(0);
+    } catch (error) {
+      console.error('❌ Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('import-postman')
+  .description('Import tests from Postman collection')
+  .option('-i, --input <path>', 'Postman collection file path (JSON)')
+  .option('-o, --output <path>', 'Output feature file path', './features/postman.feature')
+  .action(async (options) => {
+    try {
+      const { PostmanImporter } = await import('../src/utils/postman-importer.js');
+      
+      if (!options.input) {
+        console.error('❌ Please specify input file with -i or --input');
+        process.exit(1);
+      }
+      
+      console.log(`📥 Importing from Postman: ${options.input}`);
+      
+      const outputDir = options.output.replace(/\/[^/]+$/, '');
+      const importer = new PostmanImporter(options.input, outputDir);
+      const files = importer.convert();
+      
+      console.log(`✅ Generated ${files.length} feature file(s)`);
+      console.log(`   Output: ${options.output}`);
+      
+      process.exit(0);
     } catch (error) {
       console.error('❌ Error:', error instanceof Error ? error.message : error);
       process.exit(1);
