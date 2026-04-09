@@ -45,7 +45,6 @@ BDD Testing for Modern Web - API Testing, UI Testing, Database Testing, and Load
 - **Trace Viewer** - Debug with DOM snapshots and timeline
 - **Visual Regression** - Screenshot comparison testing
 - **Codegen** - Generate tests from browser interactions
-- **Device Emulation** - Test on 100+ device configurations
 
 ### Reporting
 - **Console Reporter** - Real-time test output
@@ -62,6 +61,20 @@ BDD Testing for Modern Web - API Testing, UI Testing, Database Testing, and Load
 - **Fixture Manager** - Test data management
 - **Test Data Factory** - Generate fake test data
 - **CSV/JSON Data Support** - Data-driven testing
+
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [Getting Started](./docs/getting-started.md) | Quick start guide for new users |
+| [Hop API Reference](./docs/hop-api.md) | Complete API documentation |
+| [Assertions](./docs/assertions.md) | How to use expect() and should() |
+| [Locators](./docs/locators.md) | Finding elements on page |
+| [Interactions](./docs/interactions.md) | Click, fill, drag, keyboard |
+| [Network](./docs/network.md) | Mock API and wait for requests |
+| [Custom Steps](./docs/custom-steps.md) | Define your own Gherkin steps |
+| [Gherkin](./docs/gherkin.md) | Gherkin syntax guide |
+| [Troubleshooting](./docs/troubleshooting.md) | Common issues and fixes |
 
 ## Quick Start
 
@@ -558,34 +571,7 @@ const frames = await hop.iframe.getAll();
 
 ---
 
-## Device Emulation
-
-```typescript
-import { hop } from 'hop';
-
-// Use preset devices
-const mobile = hop({ device: 'iPhone 12' });
-await mobile.launch();
-await mobile.visit('https://example.com');
-
-// Available presets:
-// Apple: iPhone 12, iPhone 12 Pro, iPhone 13, iPad Pro, etc.
-// Android: Pixel 5, Samsung Galaxy S21, etc.
-// Desktop: Desktop Chrome, Desktop Firefox, etc.
-
-// Custom device
-await hop.launch({
-  viewport: { width: 375, height: 812 },
-  userAgent: 'Custom Agent',
-  deviceScaleFactor: 3,
-  isMobile: true,
-  hasTouch: true
-});
-```
-
----
-
-## Browser Configuration
+## Viewport & Browser Configuration
 
 ```typescript
 import { hop, setConfig } from 'hop';
@@ -597,7 +583,6 @@ setConfig({
   viewport: { width: 1920, height: 1080 },
   timeout: 30000,
   video: 'on-failure', // always, on-failure, never
-  device: 'iPhone 12',
   autoAwait: true
 });
 
@@ -818,14 +803,7 @@ export default defineConfig({
     API_URL: 'https://api.example.com',
     ADMIN_USER: 'admin',
     ADMIN_PASS: 'secret'
-  },
-  
-  // Device emulation
-  devices: [
-    'iPhone 12',
-    'iPad Pro 11',
-    'Pixel 5'
-  ]
+  }
 });
 ```
 
@@ -838,17 +816,6 @@ export default defineConfig({
   // Enable auto-await (no need for await keyword)
   autoAwait: true
 });
-```
-  viewport: { width: 1280, height: 720 },
-  video: 'on-failure',
-
-  // Output
-  format: ['console', 'hop'],
-  report: true,
-
-  // Environment
-  env: 'test',
-};
 ```
 
 ---
@@ -1120,19 +1087,7 @@ before(async () => {
     await hop.reload();
     
     await hop.waitForResponse('**/todos');
-    await hop.expect('.todo-list li').toHaveCount(2);
-  });
-
-  it('should use device emulation', async () => {
-    const mobileHop = hop({
-      device: 'iPhone 12',
-      headless: true
-    });
-    
-    await mobileHop.launch();
-    await mobileHop.visit('https://demo.playwright.dev/todomvc');
-    await mobileHop.get('.new-todo').isVisible();
-    await mobileHop.close();
+    await expect(hop.get('.todo-list li')).toHaveCount(2);
   });
 
   it('should handle localStorage', async () => {
@@ -1221,13 +1176,6 @@ Feature: Todo Application - Hybrid Testing Demo
     And I wait for response "/api/todos"
     Then I should see "Mocked todo" in the list
     And the page should have 1 elements matching ".todo-list li"
-
-  @mobile
-  Scenario: Test on mobile device
-    Given I set viewport to "iPhone 12"
-    When I am on the homepage
-    Then I should see ".new-todo"
-    And the element ".new-todo" should have attribute "placeholder"
 
   @storage
   Scenario: Handle localStorage
