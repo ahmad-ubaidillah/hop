@@ -1,0 +1,32 @@
+{
+  "comments": {
+    "lineComment": "#"
+  },
+  "keywords": [
+    "Feature",
+    "Background",
+    "Scenario",
+    "Scenario Outline",
+    "Examples",
+    "Given",
+    "When",
+    "Then",
+    "And",
+    "But"
+  ],
+  "symbols": {
+    "at-rule": "@",
+    "tag": "@"
+  },
+  "tokenizer": {
+    "root": [
+      ["^\\s*(Feature|Background|Scenario|Scenario Outline|Examples)", "keyword"],
+      ["^\\s*(Given|When|Then|And|But)", "keyword"],
+      ["@[^\\s]+", "tag"],
+      ["\"[^\"]*\"", "string"],
+      ["'[^']*'", "string"],
+      ["<[^>]+>", "variable"],
+      ["#.*$", "comment"]
+    ]
+  }
+}

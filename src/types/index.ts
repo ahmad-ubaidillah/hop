@@ -54,6 +54,11 @@ export interface Logger {
   warn: (...args: any[]) => void;
 }
 
+export interface IStepHandler {
+  canHandle(text: string): boolean;
+  handle(text: string, step: Step, context: TestContext, executor: any): Promise<void>;
+}
+
 export interface TestContext {
   baseUrl: string;
   path: string;
@@ -129,7 +134,7 @@ export interface EngineOptions {
   retry: number;
   parallel: boolean;
   concurrency: number;
-  video: boolean;
+  video: boolean | 'always' | 'on-failure' | 'never';
   report?: 'html' | 'json' | 'junit';
   reportDir?: string;
 }

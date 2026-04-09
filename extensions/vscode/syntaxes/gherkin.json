@@ -1,0 +1,147 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Gherkin",
+  "patterns": [
+    {
+      "include": "#tags"
+    },
+    {
+      "include": "#feature"
+    },
+    {
+      "include": "#background"
+    },
+    {
+      "include": "#scenario"
+    },
+    {
+      "include": "#step"
+    },
+    {
+      "include": "#table"
+    },
+    {
+      "include": "#docstring"
+    }
+  ],
+  "repository": {
+    "tags": {
+      "patterns": {
+        "@[\\w-]+": {
+          "name": "keyword.control.at-tag.gherkin"
+        }
+      }
+    },
+    "feature": {
+      "begin": "^\\s*(Feature):",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.feature.gherkin"
+        }
+      },
+      "end": "(?=^\\s*(Scenario|Background|Example|Scenario Outline)|\\z)",
+      "patterns": [
+        {
+          "include": "#tags"
+        },
+        {
+          "include": "#description"
+        }
+      ]
+    },
+    "background": {
+      "begin": "^\\s*(Background):",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.background.gherkin"
+        }
+      },
+      "end": "(?=^\\s*(Scenario|Feature|Example|Scenario Outline)|\\z)",
+      "patterns": [
+        {
+          "include": "#step"
+        }
+      ]
+    },
+    "scenario": {
+      "begin": "^\\s*(Scenario Outline|Scenario|Example):",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.scenario.gherkin"
+        }
+      },
+      "end": "(?=^\\s*(Scenario|Background|Feature|Scenario Outline|Example)|\\z)",
+      "patterns": [
+        {
+          "include": "#tags"
+        },
+        {
+          "include": "#description"
+        },
+        {
+          "include": "#step"
+        },
+        {
+          "include": "#examples"
+        }
+      ]
+    },
+    "examples": {
+      "begin": "^\\s*(Examples|Scenarios):",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.examples.gherkin"
+        }
+      },
+      "end": "(?=^\\s*(Scenario|Background|Feature|Scenario Outline|Example)|\\z)",
+      "patterns": [
+        {
+          "include": "#table"
+        }
+      ]
+    },
+    "step": {
+      "patterns": [
+        {
+          "match": "^\\s*(Given|When|Then|And|But)\\b",
+          "name": "keyword.control.step.gherkin"
+        },
+        {
+          "match": "'[^']*'|\"[^\"]*\"",
+          "name": "string.quoted.step.gherkin"
+        },
+        {
+          "match": "<[^>]+>",
+          "name": "variable.placeholder.gherkin"
+        }
+      ]
+    },
+    "table": {
+      "begin": "\\|",
+      "patterns": [
+        {
+          "match": "\\|",
+          "name": "punctuation.separator.table.gherkin"
+        },
+        {
+          "match": "[^|]+",
+          "name": "table.cell.gherkin"
+        }
+      ]
+    },
+    "docstring": {
+      "begin": "\"\"\"",
+      "end": "\"\"\"",
+      "name": "string.docstring.gherkin"
+    },
+    "description": {
+      "patterns": [
+        {
+          "match": ".+$",
+          "name": "comment.description.gherkin"
+        }
+      ]
+    }
+  },
+  "scopeName": "source.gherkin"
+}

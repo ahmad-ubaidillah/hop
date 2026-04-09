@@ -19,6 +19,7 @@ export interface HopConfig {
   };
   headers: Record<string, string>;
   environments: Record<string, { baseUrl?: string; [key: string]: any }>;
+  video?: 'always' | 'on-failure' | 'never';
 }
 
 export interface CliOptions {
@@ -37,7 +38,7 @@ export interface CliOptions {
   breakpoint?: string;
   report?: boolean;
   reportDir?: string;
-  video?: boolean;
+  video?: 'always' | 'on-failure' | 'never' | boolean;
 }
 
 export interface ValidationResult {

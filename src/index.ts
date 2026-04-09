@@ -62,6 +62,12 @@ export { OpenAPIImporter } from './utils/openapi-importer.js';
 export type { GeneratedTestCase } from './utils/openapi-importer.js';
 export { PostmanImporter } from './utils/postman-importer.js';
 export { GraphQLSchemaValidator } from './utils/graphql-schema-validator.js';
+export { ErrorFormatter } from './utils/error-formatter.js';
+export { JsonParser } from './utils/json-parser.js';
+export { ExpressionEvaluator } from './utils/expression-evaluator.js';
+export { CsvParser } from './utils/csv-parser.js';
+export { DebugLogger } from './utils/debug-logger.js';
+export { BufferedLogger } from './utils/buffered-logger.js';
 
 export { loadConfig, mergeOptions } from './config/config-loader.js';
 
@@ -75,3 +81,9 @@ export { MockEngine } from './mock/mock-engine.js';
 export { AuthManager } from './auth/auth-manager.js';
 
 export { DbManager } from './db/db-manager.js';
+
+export { hop, createHop } from './hop.js';
+export type { HopConfig, HopActionOptions, HopWaitOptions } from './hop.js';
+export { before, beforeAll, after, afterAll, beforeEach, afterEach, runBeforeAll, runAfterAll, runBeforeEach, runAfterEach, describe, it, test, expect } from './hop.js';
+export { defineStep, defineGiven, defineWhen, defineThen, getStepRegistry, clearStepDefinitions } from './define-step.js';
+export type { StepDefinition } from './define-step.js';

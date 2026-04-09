@@ -22,7 +22,7 @@ export interface IStepExecutor {
   setPlaywright(pw: PlaywrightClient | null): void;
   
   addMockServer(server: any): void;
-
+  
   resolveVariables(value: any, context: TestContext): any;
   parseValue(value: string, context: TestContext): any;
   getNestedValue(obj: any, path: string): any;
@@ -36,6 +36,8 @@ export interface IStepExecutor {
   
   loadCsvFile(csvPath: string, varName: string, context: TestContext): Promise<void>;
   handleCallFeature(featurePath: string, context: TestContext, args?: Record<string, any>, backgroundOnly?: boolean): Promise<void>;
+  
+  takeScreenshot(name: string, context: TestContext): Promise<string | undefined>;
 }
 
 export interface StepHandler {

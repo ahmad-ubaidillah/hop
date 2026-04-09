@@ -37,7 +37,9 @@ program
   .option('--timeout <ms>', 'Test timeout in milliseconds', config.timeout.toString())
   .option('-p, --parallel', 'Run tests in parallel', false)
   .option('-cn, --concurrency <count>', 'Maximum concurrent tests', '4')
-  .option('--video', 'Record video of UI tests', false)
+  .option('--video <mode>', 'Video recording mode (always, on-failure, never)', 'on-failure')
+  .option('--pause', 'Pause on failure for interactive debugging', false)
+  .option('--hot-reload', 'Auto re-run tests when files change', false)
   .option('-c, --config <path>', 'Path to config file')
   .option('--report-dir <path>', 'Directory to save reports', './reports')
   .action(async (pathArg, options) => {
@@ -318,25 +320,36 @@ program
   .command('record')
   .description('Record browser actions and generate feature file')
   .option('-o, --output <path>', 'Output feature file path', './features/recorded.feature')
+  .option('-s, --steps <path>', 'Output step definitions path', './steps/recorded.steps.ts')
   .option('-b, --browser <browser>', 'Browser to use (chromium, firefox, webkit)', 'chromium')
   .option('-u, --url <url>', 'Initial URL to open')
   .option('--headless', 'Run browser in headless mode', false)
   .option('--slow-mo <ms>', 'Slow down operations by ms', '50')
+  .option('--no-steps', 'Do not generate step definitions', false)
   .action(async (options) => {
     try {
       const { Recorder } = await import('../src/recorder/recorder.js');
       const recorder = new Recorder({
         outputPath: options.output,
+        stepPath: options.steps,
         browser: options.browser,
         headless: options.headless,
         slowMo: parseInt(options.slowMo),
         baseURL: options.url,
+        generateSteps: options.steps !== false,
       });
       
       console.log('🎬 Hop Recorder - Starting browser...');
       console.log('');
       
       await recorder.start();
+      
+      console.log('\n📊 Recording Summary:');
+      for (const { type, count } of recorder.getSummary()) {
+        console.log(`   ${type}: ${count}`);
+      }
+      console.log('');
+      
       await recorder.save(options.output);
       
       console.log('');
@@ -411,6 +424,37 @@ program
       
       console.log(`✅ Generated ${files.length} feature file(s)`);
       console.log(`   Output: ${options.output}`);
+      
+      process.exit(0);
+    } catch (error) {
+      console.error('❌ Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('debug')
+  .description('Debug tests in interactive mode')
+  .option('-f, --feature <path>', 'Path to feature file')
+  .option('-s, --scenario <name>', 'Scenario name to debug')
+  .option('-f, --features <path>', 'Path to features directory', './features')
+  .action(async (options) => {
+    try {
+      const { GherkinParser } = await import('../src/parser/gherkin-parser.js');
+      const featuresPath = path.resolve(options.features || './features');
+      
+      const parser = new GherkinParser();
+      const featureFiles = await parser.discoverFeatures(featuresPath);
+      
+      if (featureFiles.length === 0) {
+        console.error('❌ No feature files found');
+        process.exit(1);
+      }
+      
+      const parsedFeatures = await parser.parseFeatures(featureFiles);
+      
+      const { startDebugMode } = await import('../src/cli/debugger.js');
+      await startDebugMode(parsedFeatures, options.scenario);
       
       process.exit(0);
     } catch (error) {

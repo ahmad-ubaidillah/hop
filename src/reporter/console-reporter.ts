@@ -1,9 +1,7 @@
 import type { Feature, TestResult } from '../types/index.js';
+import { HopError, formatValue, generateDiff } from '../utils/error-formatter.js';
 
 export class ConsoleReporter {
-  /**
-   * Print parsed features to console
-   */
   printFeatures(features: Feature[]): void {
     for (const feature of features) {
       console.log(`📁 ${feature.name}`);
@@ -47,9 +45,6 @@ export class ConsoleReporter {
     }
   }
   
-  /**
-   * Print test results to console
-   */
   printResults(results: TestResult[]): void {
     const passed = results.filter(r => r.status === 'passed').length;
     const failed = results.filter(r => r.status === 'failed').length;
@@ -67,7 +62,6 @@ export class ConsoleReporter {
     console.log(`  ⏱️  Duration: ${(totalDuration / 1000).toFixed(2)}s`);
     console.log('');
     
-    // Print failed tests
     const failedTests = results.filter(r => r.status === 'failed');
     if (failedTests.length > 0) {
       console.log('═══════════════════════════════════════════════════');
@@ -78,23 +72,38 @@ export class ConsoleReporter {
       for (const result of failedTests) {
         console.log(`❌ ${result.featureName} - ${result.scenarioName}`);
         console.log(`   Duration: ${result.duration}ms`);
-        if (result.error) {
-          console.log(`   Error: ${result.error}`);
-        }
         
-        // Find the failed step
         const failedStep = result.steps.find(s => s.status === 'failed');
         if (failedStep) {
-          console.log(`   Failed at: ${failedStep.step.keyword} ${failedStep.step.text}`);
+          console.log(`   🔹 Failed Step: ${failedStep.step.keyword} ${failedStep.step.text}`);
+          
           if (failedStep.error) {
-            console.log(`   Step Error: ${failedStep.error}`);
+            const hopError = this.parseHopError(failedStep.error);
+            if (hopError) {
+              console.log('\n   📍 Error Details:');
+              console.log(`      ${hopError.message}`);
+              
+              if (hopError.expected !== undefined && hopError.actual !== undefined) {
+                console.log('\n   📊 Comparison:');
+                console.log(`      Expected: ${formatValue(hopError.expected, 100)}`);
+                console.log(`      Actual:   ${formatValue(hopError.actual, 100)}`);
+              }
+              
+              if (hopError.suggestions.length > 0) {
+                console.log('\n   💡 Suggestions:');
+                for (const s of hopError.suggestions) {
+                  console.log(`      • ${s}`);
+                }
+              }
+            } else {
+              console.log(`   Error: ${failedStep.error}`);
+            }
           }
         }
         console.log('');
       }
     }
     
-    // Print passed tests summary
     if (passed > 0) {
       console.log('═══════════════════════════════════════════════════');
       console.log('                    PASSED TESTS');
@@ -114,10 +123,32 @@ export class ConsoleReporter {
     
     console.log('═══════════════════════════════════════════════════');
   }
+
+  private parseHopError(errorMsg: string): { message: string; expected?: any; actual?: any; suggestions: string[] } | null {
+    if (errorMsg.includes('HopError') || errorMsg.includes('📍') || errorMsg.includes('📊')) {
+      const messageMatch = errorMsg.match(/Error:\s*(.+?)(?=\n|$)/);
+      const expectedMatch = errorMsg.match(/Expected:\s*(.+?)(?=\n|$)/);
+      const actualMatch = errorMsg.match(/Actual:\s*(.+?)(?=\n|$)/);
+      const suggestionMatches = errorMsg.match(/💡 Suggestions:[\s\S]*$/);
+      
+      return {
+        message: messageMatch ? messageMatch[1].trim() : errorMsg,
+        expected: expectedMatch ? this.parseValue(expectedMatch[1]) : undefined,
+        actual: actualMatch ? this.parseValue(actualMatch[1]) : undefined,
+        suggestions: suggestionMatches ? suggestionMatches[0].split('•').filter(Boolean).map(s => s.trim()) : [],
+      };
+    }
+    return null;
+  }
+
+  private parseValue(str: string): any {
+    try {
+      return JSON.parse(str);
+    } catch {
+      return str;
+    }
+  }
   
-  /**
-   * Print a progress bar
-   */
   private printProgress(current: number, total: number): void {
     const width = 40;
     const percent = current / total;

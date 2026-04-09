@@ -18,8 +18,17 @@ import { DbHandler } from './handlers/db-handler.js';
 import { AssertionHandler } from './handlers/assertion-handler.js';
 import { CoreHandler } from './handlers/core-handler.js';
 import { DataHandler } from './handlers/data-handler.js';
+import { ContractHandler } from './handlers/contract-handler.js';
+import { GrpcHandler } from './handlers/grpc-handler.js';
+import { NetworkHandler } from './handlers/network-handler.js';
+import { SpyStubHandler } from './handlers/spy-stub-handler.js';
+import { BrowserApiHandler } from './handlers/browser-api-handler.js';
+import { ComponentTester } from './handlers/component-tester.js';
+import { ComponentTesterHandler } from './handlers/component-tester.js';
 import { ValueParser } from '../utils/value-parser.js';
 import { ScreenshotManager } from './screenshot-manager.js';
+import { HopError, createErrorFromStep, isUndefinedStepError } from '../utils/error-formatter.js';
+import { generateUndefinedStepMessage, type SnippetOptions } from './snippet-generator.js';
 
 interface StepExecutorOptions {
   stepsPath: string;
@@ -30,7 +39,7 @@ interface StepExecutorOptions {
   envConfig?: EnvConfig;
   logger?: Logger;
   reportDir?: string;
-  video?: boolean;
+  video?: boolean | 'always' | 'on-failure' | 'never';
 }
 
 export class StepExecutor implements IStepExecutor {
@@ -64,7 +73,9 @@ export class StepExecutor implements IStepExecutor {
     this.handlers = [
       new DbHandler(), new CoreHandler(), new HttpHandler(),
       new AssertionHandler(), new UiHandler(), new AuthHandler(),
-      new DataHandler(),
+      new DataHandler(), new ContractHandler(), new GrpcHandler(),
+      new NetworkHandler(), new SpyStubHandler(), new BrowserApiHandler(),
+      new ComponentTesterHandler(),
     ];
   }
 
@@ -90,12 +101,40 @@ export class StepExecutor implements IStepExecutor {
   async executeStep(step: Step, context: TestContext): Promise<void> {
     const text = resolveEnv(step.text, this.envConfig);
     const handler = this.handlers.find(h => h.canHandle(text));
-    if (handler) return await handler.handle(text, step, context, this);
+    if (handler) {
+      try {
+        return await handler.handle(text, step, context, this);
+      } catch (error) {
+        if (error instanceof Error) {
+          const hopError = createErrorFromStep(step, error, context);
+          throw hopError;
+        }
+        throw error;
+      }
+    }
     
     const custom = this.stepRegistry.findHandler(step.keyword, text);
-    if (custom) return await custom.handler(step, context, custom.params);
+    if (custom) {
+      try {
+        return await custom.handler(step, context, custom.params);
+      } catch (error) {
+        if (error instanceof Error) {
+          const hopError = createErrorFromStep(step, error, context);
+          throw hopError;
+        }
+        throw error;
+      }
+    }
     
-    throw new Error(`Unknown step: ${step.keyword} ${step.text}`, { cause: { step, isUndefinedStep: true } });
+    const snippet: SnippetOptions = {
+      keyword: step.keyword,
+      stepText: step.text,
+      stepPattern: step.text,
+    };
+    throw new HopError(
+      `Unknown step: ${step.keyword} ${step.text}`,
+      { step, context, suggestions: [`Run 'hop test --snippet' to generate step definitions`, `Create custom step in './steps' directory`] }
+    );
   }
 
   // IStepExecutor interface methods delegated to ValueParser

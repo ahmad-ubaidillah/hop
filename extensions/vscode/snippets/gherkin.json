@@ -1,0 +1,140 @@
+{
+  "Feature Template": {
+    "prefix": "feature",
+    "body": [
+      "Feature: ${1:Feature Name}",
+      "  ${2:Description of the feature}",
+      "",
+      "  Background:",
+      "    Given ${3:precondition}",
+      "",
+      "  Scenario: ${4:Scenario Name}",
+      "    Given ${5:condition}",
+      "    When ${6:action}",
+      "    Then ${7:expected result}"
+    ],
+    "description": "Create a new Feature with Background and Scenario"
+  },
+  "API Test Scenario": {
+    "prefix": "api",
+    "body": [
+      "Feature: ${1:API Feature}",
+      "",
+      "  Scenario: ${2:Get data}",
+      "    Given url '${3:https://api.example.com}'",
+      "    And header Content-Type = 'application/json'",
+      "    When method GET",
+      "    Then status 200",
+      "    And match response.data != null"
+    ],
+    "description": "Create API test scenario"
+  },
+  "UI Test Scenario": {
+    "prefix": "ui",
+    "body": [
+      "Feature: ${1:UI Feature}",
+      "",
+      "  Scenario: ${2:User login}",
+      "    Given user opens browser",
+      "    And user navigates to '${3:https://example.com/login}'",
+      "    When user types '${4:admin}' into '#username'",
+      "    And user types '${5:secret}' into '#password'",
+      "    And user clicks '#login-button'",
+      "    Then user should see element '#dashboard'"
+    ],
+    "description": "Create UI test scenario with Playwright"
+  },
+  "Database Test Scenario": {
+    "prefix": "db",
+    "body": [
+      "Feature: ${1:Database Feature}",
+      "",
+      "  Scenario: ${2:Verify user exists}",
+      "    Given connect to database '${3:postgres://localhost:5432/mydb}'",
+      "    When execute 'SELECT * FROM users WHERE email = ${4:test@example.com}'",
+      "    Then match rows[0].name == '${5:Test User}'"
+    ],
+    "description": "Create database test scenario"
+  },
+  "Scenario Outline": {
+    "prefix": "outline",
+    "body": [
+      "Feature: ${1:Data Driven Feature}",
+      "",
+      "  Scenario Outline: ${2:Test with multiple data}",
+      "    Given url '${3:https://api.example.com/users/${id}}'",
+      "    When method GET",
+      "    Then status ${4:200}",
+      "",
+      "    Examples:",
+      "      | id |",
+      "      | 1 |",
+      "      | 2 |",
+      "      | 3 |"
+    ],
+    "description": "Create Scenario Outline with Examples"
+  },
+  "Given Step": {
+    "prefix": "given",
+    "body": "Given ${1:condition}",
+    "description": "Given step"
+  },
+  "When Step": {
+    "prefix": "when",
+    "body": "When ${1:action}",
+    "description": "When step"
+  },
+  "Then Step": {
+    "prefix": "then",
+    "body": "Then ${1:expected result}",
+    "description": "Then step"
+  },
+  "And Step": {
+    "prefix": "and",
+    "body": "And ${1:additional step}",
+    "description": "And step"
+  },
+  "Wait for Element": {
+    "prefix": "wait",
+    "body": "And user waits for '${1:selector}' to be ${2|visible,hidden,clickable|}",
+    "description": "Wait for element state"
+  },
+  "Assert Visible": {
+    "prefix": "assert-visible",
+    "body": "Then user should see element '${1:selector}'",
+    "description": "Assert element is visible"
+  },
+  "Assert Not Visible": {
+    "prefix": "assert-hidden",
+    "body": "Then user should not see '${1:selector}'",
+    "description": "Assert element is not visible"
+  },
+  "Assert Text": {
+    "prefix": "assert-text",
+    "body": "Then user should see text '${1:expected text}' in '${2:selector}'",
+    "description": "Assert text content"
+  },
+  "Match Response": {
+    "prefix": "match",
+    "body": "And match response${1|,.id,data,error|} ${2|==,contains,any|} ${3:expected}",
+    "description": "Match response value"
+  },
+  "Set Variable": {
+    "prefix": "set-var",
+    "body": "* set ${1:variableName} = ${2:value}",
+    "description": "Set a variable"
+  },
+  "Use Variable": {
+    "prefix": "use-var",
+    "body": "#(${1:variableName})",
+    "description": "Use a variable"
+  },
+  "Data Table": {
+    "prefix": "table",
+    "body": [
+      "| ${1:header1} | ${2:header2} |",
+      "| ${3:value1}  | ${4:value2}  |"
+    ],
+    "description": "Create Gherkin data table"
+  }
+}

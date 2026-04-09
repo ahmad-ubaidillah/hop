@@ -1,0 +1,154 @@
+{
+  "name": "hop-framework",
+  "displayName": "Hop BDD Framework",
+  "description": "Hop BDD testing framework support for VSCode",
+  "version": "1.0.0",
+  "publisher": "hop-framework",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Testing",
+    "Snippets"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "gherkin",
+        "aliases": ["Gherkin", "Cucumber", "Feature"],
+        "extensions": [".feature"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "gherkin",
+        "scopeName": "source.gherkin",
+        "path": "./syntaxes/gherkin.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Hop Framework",
+      "properties": {
+        "hop.featuresPath": {
+          "type": "string",
+          "default": "./features",
+          "description": "Path to features directory"
+        },
+        "hop.stepsPath": {
+          "type": "string",
+          "default": "./steps",
+          "description": "Path to custom steps directory"
+        },
+        "hop.reportPath": {
+          "type": "string",
+          "default": "./reports",
+          "description": "Path to reports directory"
+        },
+        "hop.showOutlineSymbols": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show scenario outline placeholders (examples)"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "hop.runFeature",
+        "title": "Hop: Run Feature",
+        "description": "Run the current feature file"
+      },
+      {
+        "command": "hop.runScenario",
+        "title": "Hop: Run Scenario",
+        "description": "Run the current scenario"
+      },
+      {
+        "command": "hop.generateSteps",
+        "title": "Hop: Generate Steps",
+        "description": "Generate undefined step definitions"
+      },
+      {
+        "command": "hop.record",
+        "title": "Hop: Record Test",
+        "description": "Start the test recorder"
+      },
+      {
+        "command": "hop.openReport",
+        "title": "Hop: Open Report",
+        "description": "Open the test report"
+      },
+      {
+        "command": "hop.gotoStepDefinition",
+        "title": "Hop: Go to Step Definition",
+        "description": "Navigate to step definition"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "hop.runScenario",
+        "key": "f5",
+        "when": "editorLangId == gherkin"
+      },
+      {
+        "command": "hop.runFeature",
+        "key": "ctrl+f5",
+        "when": "editorLangId == gherkin"
+      },
+      {
+        "command": "hop.gotoStepDefinition",
+        "key": "f3",
+        "when": "editorLangId == gherkin"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "gherkin",
+        "path": "./snippets/gherkin.json"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "hop",
+        "label": "Hop Test Runner",
+        "languages": ["gherkin"],
+        "configurationAttributes": {
+          "launch": {
+            "required": ["feature"],
+            "properties": {
+              "feature": {
+                "type": "string",
+                "description": "Path to feature file"
+              },
+              "scenario": {
+                "type": "string",
+                "description": "Scenario name to run"
+              },
+              "tags": {
+                "type": "string",
+                "description": "Tags to filter scenarios"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./tsconfig.json",
+    "watch": "tsc -watch -p ./tsconfig.json",
+    "test": "node ./out/test/runTest.js"
+  },
+  "dependencies": {
+    "vscode": "^1.75.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.75.0",
+    "@vscode/test-electron": "^2.3.0",
+    "typescript": "^5.3.0"
+  }
+}

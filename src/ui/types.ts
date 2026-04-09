@@ -3,8 +3,9 @@ export interface PlaywrightOptions {
   browser?: 'chromium' | 'firefox' | 'webkit';
   viewport?: { width: number; height: number };
   timeout?: number;
-  video?: boolean;
+  video?: boolean | 'always' | 'on-failure' | 'never';
   screenshotOnFailure?: boolean;
+  device?: string;
 }
 
 export interface ElementLocator {
