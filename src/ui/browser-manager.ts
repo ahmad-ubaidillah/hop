@@ -48,12 +48,6 @@ export class BrowserManager {
     if (deviceName && DevicePresets[deviceName]) {
       const device = DevicePresets[deviceName];
       contextOptions.viewport = device.viewport;
-      contextOptions.deviceScaleFactor = device.deviceScaleFactor;
-      contextOptions.isMobile = device.isMobile;
-      contextOptions.hasTouch = device.hasTouch;
-      if (device.userAgent) {
-        contextOptions.userAgent = device.userAgent;
-      }
     }
 
     this.context = await this.browser.newContext(contextOptions);
