@@ -9,6 +9,7 @@ import { DevicePresets, type DeviceConfig } from './ui/semantic-locators.js';
 export type { DeviceConfig };
 
 let globalConfig: HopConfig & { autoAwait?: boolean } = { autoAwait: false };
+let hopInstance: any = null;
 
 export interface HopConfig {
   browser?: 'chromium' | 'firefox' | 'webkit';
@@ -20,8 +21,42 @@ export interface HopConfig {
   autoAwait?: boolean;
 }
 
+function createHopAutoAwait(): any {
+  const api = new HopAPI({});
+  
+  const handler = {
+    get(target: any, prop: string) {
+      const value = target[prop];
+      
+      if (typeof value === 'function') {
+        return (...args: any[]) => {
+          const result = value.apply(target, args);
+          if (result instanceof Promise) {
+            result.catch(() => {});
+          }
+          return result;
+        };
+      }
+      
+      return value;
+    }
+  };
+  
+  return new Proxy(api, handler);
+}
+
+function getHopInstance(): HopAPI {
+  if (!hopInstance) {
+    hopInstance = globalConfig.autoAwait ? createHopAutoAwait() : new HopAPI({});
+  }
+  return hopInstance;
+}
+
 export function setConfig(config: Partial<HopConfig>): void {
   globalConfig = { ...globalConfig, ...config };
+  if (config.autoAwait !== undefined) {
+    hopInstance = config.autoAwait ? createHopAutoAwait() : new HopAPI({});
+  }
 }
 
 export function getConfig(): typeof globalConfig {
@@ -352,6 +387,7 @@ class HopLocator {
   first(): HopLocator { return new HopLocator(this.pageRef, this.locator.first()); }
   last(): HopLocator { return new HopLocator(this.pageRef, this.locator.last()); }
   nth(index: number): HopLocator { return new HopLocator(this.pageRef, this.locator.nth(index)); }
+  async evaluate<R>(fn: (el: any) => R): Promise<R> { return await this.locator.evaluate(fn); }
 }
 
 class HopAPI {
@@ -396,8 +432,8 @@ class HopAPI {
   getByAltText(text: string, options?: any): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.getByAltText(text, options)); }
   getByTitle(text: string, options?: any): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.getByTitle(text, options)); }
 
-  $(selector: string): HopLocator | null { const page = this.getPage(); if (!page) return null; const el = page.$(selector); return el ? new HopLocator(page, el) : null; }
-  $$(selector: string): HopLocator[] { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return page.$$(selector).map(el => new HopLocator(page, el)); }
+  $(selector: string): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.locator(selector).first()); }
+  $$(selector: string): HopLocator[] { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return [new HopLocator(page, page.locator(selector))]; }
   async $eval<R>(selector: string, fn: (el: Element, ...args: any[]) => R): Promise<R | null> { const page = this.getPage(); if (!page) return null; return await page.$eval(selector, fn as any); }
   async $$eval<R>(selector: string, fn: (els: Element[], ...args: any[]) => R): Promise<R> { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return await page.$$eval(selector, fn as any); }
   first(selector: string): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.locator(selector).first()); }
@@ -555,6 +591,6 @@ function createHop(config?: HopConfig): HopAPI {
   return new HopAPI(config);
 }
 
-export const hop = createHop();
+export const hop: any = globalConfig.autoAwait ? createHopAutoAwait() : new HopAPI({});
 export { createHop };
 export default hop;
