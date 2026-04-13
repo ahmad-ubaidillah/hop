@@ -27,6 +27,7 @@ export { PlaywrightClient } from './ui/playwright-client.js';
 export { BrowserManager } from './ui/browser-manager.js';
 export { BrowserInteractions } from './ui/browser-interactions.js';
 export { BrowserAssertions } from './ui/browser-assertions.js';
+export { ChainableHop, chain } from './ui/chainable-hop.js';
 
 export { JsonReporter } from './reporter/json-reporter.js';
 export { JunitReporter } from './reporter/junit-reporter.js';
