@@ -23,7 +23,7 @@ import { GrpcHandler } from './handlers/grpc-handler.js';
 import { NetworkHandler } from './handlers/network-handler.js';
 import { SpyStubHandler } from './handlers/spy-stub-handler.js';
 import { BrowserApiHandler } from './handlers/browser-api-handler.js';
-import { ComponentTester } from './handlers/component-tester.js';
+import { ComponentTester } from '../ui/component-tester.js';
 import { ComponentTesterHandler } from './handlers/component-tester.js';
 import { ValueParser } from '../utils/value-parser.js';
 import { ScreenshotManager } from './screenshot-manager.js';
