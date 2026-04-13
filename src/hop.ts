@@ -433,7 +433,7 @@ class HopAPI {
   getByRole(role: string, options?: any): HopLocator { 
     const page = this.getPage(); 
     if (!page) throw new Error('Page not initialized'); 
-    return new HopLocator(page, page.getByRole(role as import('playwright-core').Role, options)); 
+    return new HopLocator(page, page.getByRole(role as any, options)); 
   }
   getByLabel(text: string, options?: any): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.getByLabel(text, options)); }
   getByPlaceholder(text: string, options?: any): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.getByPlaceholder(text, options)); }

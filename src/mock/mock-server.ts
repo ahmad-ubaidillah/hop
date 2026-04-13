@@ -47,7 +47,7 @@ export class MockServer {
         const mockReq: MockRequest = {
           path: url.pathname,
           method: req.method as any,
-          headers: Object.fromEntries(req.headers.entries()),
+          headers: Object.fromEntries(req.headers as any),
           queryParams: Object.fromEntries(url.searchParams.entries()),
           body,
         };

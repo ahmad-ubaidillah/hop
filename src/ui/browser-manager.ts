@@ -72,7 +72,7 @@ export class BrowserManager {
 
   public async getVideoPath(): Promise<string | undefined> {
     if (this.context && this.saveVideoOnFailure) {
-      const video = this.context.video();
+      const video = (this.context as any).video?.();
       if (video) {
         return await video.path();
       }
@@ -83,7 +83,7 @@ export class BrowserManager {
   public async close(): Promise<void> {
     if (this.saveVideoOnFailure && this.context) {
       try {
-        const video = this.context.video();
+        const video = (this.context as any).video?.();
         if (video) {
           this.videoPath = await video.path();
         }
