@@ -3,8 +3,23 @@ import * as path from 'path';
 export class BrowserInteractions {
     manager;
     screenshotsDir = './screenshots';
+    autoWaitTimeout = 10000;
     constructor(manager) {
         this.manager = manager;
+    }
+    async waitForElement(selector, state = 'visible') {
+        const page = this.manager.getPage();
+        if (!page)
+            throw new Error('Browser not launched. Call launch() first.');
+        try {
+            await page.waitForSelector(selector, {
+                state,
+                timeout: this.autoWaitTimeout
+            });
+        }
+        catch (e) {
+            throw new Error(`Element '${selector}' not ${state} after ${this.autoWaitTimeout}ms`);
+        }
     }
     async navigate(url) {
         const page = this.manager.getPage();
@@ -16,12 +31,16 @@ export class BrowserInteractions {
         const page = this.manager.getPage();
         if (!page)
             throw new Error('Browser not launched. Call launch() first.');
+        await this.waitForElement(selector, 'visible');
+        await this.waitForElement(selector, 'enabled');
         await page.click(selector);
     }
     async type(selector, text, clear = false) {
         const page = this.manager.getPage();
         if (!page)
             throw new Error('Browser not launched. Call launch() first.');
+        await this.waitForElement(selector, 'visible');
+        await this.waitForElement(selector, 'enabled');
         if (clear) {
             await page.fill(selector, '');
         }
@@ -31,6 +50,8 @@ export class BrowserInteractions {
         const page = this.manager.getPage();
         if (!page)
             throw new Error('Browser not launched. Call launch() first.');
+        await this.waitForElement(selector, 'visible');
+        await this.waitForElement(selector, 'enabled');
         await page.fill(selector, text);
     }
     async setCookie(name, value, domain) {

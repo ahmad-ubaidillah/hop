@@ -287,7 +287,7 @@ export class UiHandler implements StepHandler {
       const pw = executor.getPlaywright(context);
       if (!pw) throw new Error('Browser not opened. Use "I open \'url\'" first.');
       const resolvedText = executor.resolveVariables(iFillMatch[2], context);
-      await pw.type(iFillMatch[1], resolvedText);
+      await pw.fill(iFillMatch[1], resolvedText);
       return;
     }
 

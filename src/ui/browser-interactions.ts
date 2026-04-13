@@ -5,9 +5,24 @@ import * as path from 'path';
 export class BrowserInteractions {
   private manager: BrowserManager;
   private screenshotsDir: string = './screenshots';
+  private autoWaitTimeout: number = 10000;
 
   constructor(manager: BrowserManager) {
     this.manager = manager;
+  }
+
+  private async waitForElement(selector: string, state: 'visible' | 'attached' | 'enabled' = 'visible'): Promise<void> {
+    const page = this.manager.getPage();
+    if (!page) throw new Error('Browser not launched. Call launch() first.');
+    
+    try {
+      await page.waitForSelector(selector, { 
+        state, 
+        timeout: this.autoWaitTimeout 
+      });
+    } catch (e) {
+      throw new Error(`Element '${selector}' not ${state} after ${this.autoWaitTimeout}ms`);
+    }
   }
 
   async navigate(url: string): Promise<void> {
@@ -20,12 +35,18 @@ export class BrowserInteractions {
   async click(selector: string): Promise<void> {
     const page = this.manager.getPage();
     if (!page) throw new Error('Browser not launched. Call launch() first.');
+    
+    await this.waitForElement(selector, 'visible');
+    await this.waitForElement(selector, 'enabled');
     await page.click(selector);
   }
 
   async type(selector: string, text: string, clear: boolean = false): Promise<void> {
     const page = this.manager.getPage();
     if (!page) throw new Error('Browser not launched. Call launch() first.');
+    
+    await this.waitForElement(selector, 'visible');
+    await this.waitForElement(selector, 'enabled');
     
     if (clear) {
       await page.fill(selector, '');
@@ -36,6 +57,9 @@ export class BrowserInteractions {
   async fill(selector: string, text: string): Promise<void> {
     const page = this.manager.getPage();
     if (!page) throw new Error('Browser not launched. Call launch() first.');
+    
+    await this.waitForElement(selector, 'visible');
+    await this.waitForElement(selector, 'enabled');
     await page.fill(selector, text);
   }
 
