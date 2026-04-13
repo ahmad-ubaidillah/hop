@@ -64,31 +64,21 @@ export class MockEngine {
   private matches(scenario: Scenario, req: MockRequest): boolean {
     const name = scenario.name.trim();
     
-    // If name contains an expression like pathMatches('/users'), evaluate it
-    // For now, let's implement a simple but effective matching logic
     try {
-      // Create a sandbox for matching
       const sandbox = {
         pathMatches: (p: string) => req.path === p || req.path.startsWith(p),
         methodIs: (m: string) => req.method.toUpperCase() === m.toUpperCase(),
         headerContains: (h: string, v: string) => req.headers[h.toLowerCase()]?.includes(v),
-        bodyPath: (p: string) => {
-          // Placeholder for body path matching if needed
-          return true;
-        },
+        bodyPath: (p: string) => true,
         request: req.body,
         method: req.method,
         path: req.path,
       };
 
-      // Simple implementation: if scenario name contains '&&' or specific functions, use eval-like logic
-      // Otherwise, check for simple string equality or regex
       if (name.includes('pathMatches') || name.includes('methodIs') || name.includes('&&')) {
-        const fn = new Function(...Object.keys(sandbox), `return ${name}`);
-        return fn(...Object.values(sandbox));
+        return this.evaluateExpression(name, sandbox);
       }
 
-      // Fallback: simple string matches
       return name.includes(req.path) && name.toLowerCase().includes(req.method.toLowerCase());
     } catch (e) {
       if (this.verbose) {
@@ -96,6 +86,60 @@ export class MockEngine {
       }
       return false;
     }
+  }
+
+  private evaluateExpression(expr: string, sandbox: Record<string, any>): boolean {
+    const allowedFunctions = ['pathMatches', 'methodIs', 'headerContains', 'bodyPath'];
+    const allowedVariables = Object.keys(sandbox);
+    
+    const tokens = expr.split(/(\s+|&&|\|\||\(|\)|,|'[^']*'|"[^"]*")/).filter(t => t.trim());
+    let result = true;
+    let currentOp = '&&';
+    
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i].trim();
+      
+      if (token === '&&' || token === '||') {
+        currentOp = token;
+        continue;
+      }
+      
+      if (token === '(' || token === ')') continue;
+      
+      let value: boolean;
+      
+      if (allowedFunctions.some(f => token.startsWith(f + '('))) {
+        const funcName = token.split('(')[0];
+        const argsMatch = token.match(/\(([^)]*)\)/);
+        const args = argsMatch ? argsMatch[1].split(',').map(a => a.trim().replace(/^['"]|['"]$/g, '')) : [];
+        
+        if (funcName === 'pathMatches' && args.length > 0) {
+          value = sandbox.pathMatches(args[0]);
+        } else if (funcName === 'methodIs' && args.length > 0) {
+          value = sandbox.methodIs(args[0]);
+        } else if (funcName === 'headerContains' && args.length > 1) {
+          value = sandbox.headerContains(args[0], args[1]);
+        } else if (funcName === 'bodyPath') {
+          value = sandbox.bodyPath(args[0] || '');
+        } else {
+          value = false;
+        }
+      } else if (token.startsWith("'") || token.startsWith('"')) {
+        continue;
+      } else if (allowedVariables.includes(token)) {
+        value = !!sandbox[token];
+      } else {
+        value = false;
+      }
+      
+      if (currentOp === '&&') {
+        result = result && value;
+      } else {
+        result = result || value;
+      }
+    }
+    
+    return result;
   }
 
   private async executeScenario(scenario: Scenario, req: MockRequest): Promise<MockResponse> {

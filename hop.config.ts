@@ -45,9 +45,9 @@ export default defineConfig({
   baseUrl: 'https://demo.playwright.dev',
   
   env: {
-    API_URL: 'https://api.example.com',
-    ADMIN_USER: 'admin',
-    ADMIN_PASS: 'secret'
+    API_URL: process.env.API_URL || 'https://api.example.com',
+    ADMIN_USER: process.env.ADMIN_USER || 'admin',
+    ADMIN_PASS: process.env.ADMIN_PASS || ''
   },
   
   devices: [

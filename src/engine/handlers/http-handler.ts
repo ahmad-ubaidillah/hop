@@ -42,7 +42,9 @@ export class HttpHandler implements StepHandler {
         for (const [key, value] of Object.entries(headersObj)) {
           context.headers[key] = executor.resolveVariables(value, context);
         }
-      } catch {}
+      } catch (e) {
+        console.warn(`Failed to parse headers JSON: ${e instanceof Error ? e.message : e}`);
+      }
       return;
     }
     
@@ -59,7 +61,9 @@ export class HttpHandler implements StepHandler {
         for (const [key, value] of Object.entries(paramsObj)) {
           context.queryParams[key] = executor.resolveVariables(value, context);
         }
-      } catch {}
+      } catch (e) {
+        console.warn(`Failed to parse params JSON: ${e instanceof Error ? e.message : e}`);
+      }
       return;
     }
     

@@ -49,8 +49,15 @@ export class AccessibilityChecker {
 
     const result = await this.page.evaluate(async () => {
       if (typeof (window as any).axe === 'undefined') {
-        const axeScript = await fetch('https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.8.3/axe.min.js').then(r => r.text());
-        eval(axeScript);
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.8.3/axe.min.js';
+        document.head.appendChild(script);
+        
+        await new Promise<void>((resolve, reject) => {
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Failed to load axe-core'));
+          setTimeout(() => reject(new Error('axe-core load timeout')), 10000);
+        });
       }
 
       return await (window as any).axe.run(document);

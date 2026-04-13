@@ -87,13 +87,20 @@ export class BrowserManager {
         if (video) {
           this.videoPath = await video.path();
         }
-      } catch {}
+      } catch (e) {
+        console.warn(`Failed to get video path: ${e instanceof Error ? e.message : e}`);
+      }
     }
     
-    await this.browser?.close();
-    this.browser = null;
-    this.context = null;
-    this.page = null;
+    try {
+      await this.browser?.close();
+    } catch (e) {
+      console.error(`Failed to close browser: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      this.browser = null;
+      this.context = null;
+      this.page = null;
+    }
   }
 
   public getRecordedVideoPath(): string | undefined {

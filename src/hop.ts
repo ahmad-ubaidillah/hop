@@ -218,7 +218,7 @@ class HopBrowser {
 
   async launch(): Promise<void> {
     if (!this.manager) {
-      this.manager = new BrowserManager(this.config as any);
+      this.manager = new BrowserManager(this.config as import('./ui/types.js').PlaywrightOptions);
     }
     await this.manager.launch();
   }
@@ -328,7 +328,13 @@ class HopLocator {
   async getAttribute(name: string): Promise<string | null> { return await this.locator.getAttribute(name); }
   async getText(): Promise<string> { return await this.locator.textContent() || ''; }
   async getInnerHTML(): Promise<string> { return await this.locator.innerHTML(); }
-  async getValue(): Promise<string> { return await (this.locator as any).inputValue(); }
+  async getValue(): Promise<string> { 
+    try {
+      return await this.locator.inputValue();
+    } catch {
+      return await this.locator.getAttribute('value') || '';
+    }
+  }
 
   async isVisible(): Promise<boolean> { try { await this.locator.waitFor({ state: 'visible', timeout: 1000 }); return true; } catch { return false; } }
   async isHidden(): Promise<boolean> { return !(await this.isVisible()); }
@@ -424,7 +430,11 @@ class HopAPI {
   getPage(): Page | null { return this.currentPage || this.browserManager.getPage(); }
   get(selector: string): HopLocator { return new HopLocator(this.getPage(), selector); }
 
-  getByRole(role: string, options?: any): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.getByRole(role as any, options)); }
+  getByRole(role: string, options?: any): HopLocator { 
+    const page = this.getPage(); 
+    if (!page) throw new Error('Page not initialized'); 
+    return new HopLocator(page, page.getByRole(role as import('playwright-core').Role, options)); 
+  }
   getByLabel(text: string, options?: any): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.getByLabel(text, options)); }
   getByPlaceholder(text: string, options?: any): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.getByPlaceholder(text, options)); }
   getByText(text: string, options?: any): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.getByText(text, options)); }
@@ -434,7 +444,7 @@ class HopAPI {
 
   $(selector: string): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.locator(selector).first()); }
   $$(selector: string): HopLocator[] { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return [new HopLocator(page, page.locator(selector))]; }
-  async $eval<R>(selector: string, fn: (el: Element, ...args: any[]) => R): Promise<R | null> { const page = this.getPage(); if (!page) return null; return await page.$eval(selector, fn as any); }
+  async $eval<R>(selector: string, fn: (el: Element, ...args: any[]) => R): Promise<R> { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return await page.$eval(selector, fn as any); }
   async $$eval<R>(selector: string, fn: (els: Element[], ...args: any[]) => R): Promise<R> { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return await page.$$eval(selector, fn as any); }
   first(selector: string): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.locator(selector).first()); }
   last(selector: string): HopLocator { const page = this.getPage(); if (!page) throw new Error('Page not initialized'); return new HopLocator(page, page.locator(selector).last()); }
@@ -491,9 +501,9 @@ class HopAPI {
     await page.setViewportSize({ width, height });
   }
 
-  async viewportSize(): Promise<{ width: number; height: number } | null> {
+  async viewportSize(): Promise<{ width: number; height: number }> {
     const page = this.getPage();
-    if (!page) return null;
+    if (!page) throw new Error('Page not initialized');
     return await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
   }
 

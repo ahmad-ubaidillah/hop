@@ -21,7 +21,9 @@ export class AllureReporter {
     // Clean and create output directory
     try {
       await rm(this.outputPath, { recursive: true, force: true });
-    } catch (e) {}
+    } catch (e) {
+      console.warn(`Failed to clean output directory: ${e instanceof Error ? e.message : e}`);
+    }
     await mkdir(this.outputPath, { recursive: true });
     
     let idx = 0;

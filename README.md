@@ -15,6 +15,8 @@ Hybrid testing framework supporting **Gherkin BDD** and **Direct Code** testing.
 - **Auto-Await** - Optional automatic await
 - **Mock API** - intercept(), waitForRequest(), waitForResponse()
 - **Hooks** - before, beforeEach, after, afterEach
+- **Security** - No hardcoded secrets, safe expression evaluation
+- **Error Handling** - Consistent error messages, proper logging
 
 ## Documentation
 
@@ -39,6 +41,27 @@ npm install -g hop-framework
 # Run tests
 hop test
 ```
+
+## Environment Configuration
+
+Hop uses environment variables for sensitive configuration. Create a `.env` file in your project root:
+
+```bash
+# .env
+API_URL=https://api.example.com
+ADMIN_USER=admin
+ADMIN_PASS=your-secret-password
+```
+
+Or set them in your CI/CD pipeline:
+
+```bash
+export API_URL=https://api.example.com
+export ADMIN_USER=admin
+export ADMIN_PASS=your-secret-password
+```
+
+**Security Note:** Never commit `.env` files or hardcode secrets in `hop.config.ts`.
 
 ## Basic Usage
 
@@ -69,6 +92,23 @@ Feature: Login
 ```
 
 **Learn more:** See [docs/getting-started.md](./docs/getting-started.md)
+
+## Recent Updates
+
+### Security Improvements
+- Removed hardcoded secrets from configuration
+- Replaced `eval()` with safe script injection
+- Replaced dynamic `Function()` with whitelist-based expression evaluation
+- Added proper error logging for all catch blocks
+
+### Error Handling
+- Consistent error messages across all API methods
+- All methods now throw `'Page not initialized'` when browser is not launched
+- Improved error logging for debugging
+
+### Type Safety
+- Reduced `as any` usage for better TypeScript support
+- Replaced `@ts-ignore` with `@ts-expect-error` with descriptions
 
 ---
 

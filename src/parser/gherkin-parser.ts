@@ -33,7 +33,7 @@ export class GherkinParser {
     const { Parser, AstBuilder, GherkinClassicTokenMatcher } = await import('@cucumber/gherkin');
     const builder = new AstBuilder(() => crypto.randomUUID());
     const tokenMatcher = new GherkinClassicTokenMatcher();
-    // @ts-ignore
+    // @ts-expect-error - Parser constructor types may not match exactly
     const parser = new Parser(builder, tokenMatcher);
     const doc = parser.parse(gherkinContent);
     if (!doc || !doc.feature) throw new Error('Invalid Gherkin document: no feature found');
