@@ -401,4 +401,23 @@ program
         process.exit(1);
     }
 });
+program
+    .command('gui')
+    .description('Open Hop GUI - Visual test runner')
+    .action(async () => {
+    try {
+        const guiPath = new URL('./hop-gui.ts', import.meta.url).pathname;
+        const guiProcess = spawn('bun', [guiPath], {
+            cwd: process.cwd(),
+            stdio: 'inherit',
+        });
+        guiProcess.on('close', (code) => {
+            process.exit(code || 0);
+        });
+    }
+    catch (error) {
+        console.error('❌ Error launching GUI:', error instanceof Error ? error.message : error);
+        process.exit(1);
+    }
+});
 program.parse();
