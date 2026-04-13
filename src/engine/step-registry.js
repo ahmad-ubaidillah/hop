@@ -15,15 +15,19 @@ export class StepRegistry {
             const stepsDir = join(process.cwd(), this.stepsPath);
             const stats = await stat(stepsDir);
             if (stats.isDirectory()) {
+                console.log(`[Hop] Loading custom steps from: ${stepsDir}`);
                 await this.loadStepsFromDirectory(stepsDir);
             }
             else {
+                console.log(`[Hop] Loading custom steps from: ${this.stepsPath}`);
                 await this.loadSingleFile(this.stepsPath);
             }
             this.loaded = true;
+            const registeredCount = this.getRegisteredSteps().length;
+            console.log(`[Hop] Registered ${registeredCount} custom step(s)`);
         }
-        catch {
-            // No custom steps found, that's okay
+        catch (e) {
+            console.log(`[Hop] No custom steps directory found at: ${this.stepsPath}`);
         }
     }
     async loadStepsFromDirectory(dirPath) {
@@ -39,8 +43,11 @@ export class StepRegistry {
     }
     async loadSingleFile(filePath) {
         try {
+            console.log(`[Hop] Loading step file: ${filePath}`);
             const module = await import(filePath + '?t=' + Date.now());
             if (module.default) {
+                const stepCount = Object.keys(module.default).length;
+                console.log(`[Hop] Found ${stepCount} step(s) in default export`);
                 this.registerSteps(module.default);
             }
             for (const [name, handler] of Object.entries(module)) {
@@ -50,7 +57,7 @@ export class StepRegistry {
             }
         }
         catch (e) {
-            console.warn(`Failed to load steps from ${filePath}:`, e);
+            console.warn(`[Hop] Failed to load steps from ${filePath}:`, e);
         }
     }
     registerSteps(steps) {

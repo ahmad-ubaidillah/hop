@@ -21,7 +21,16 @@ export class UiHandler {
             text.match(/^user should not see ['"]/i) !== null ||
             text.match(/^user refreshes page/i) !== null ||
             text.match(/^user sets cookie ['"](.+)['"] to ['"]/i) !== null ||
-            text.match(/^user takes screenshot/i) !== null;
+            text.match(/^user takes screenshot/i) !== null ||
+            text.match(/^I open ['"]/i) !== null ||
+            text.match(/^I visit ['"]/i) !== null ||
+            text.match(/^I click ['"]/i) !== null ||
+            text.match(/^I fill ['"]/i) !== null ||
+            text.match(/^I type ['"]/i) !== null ||
+            text.match(/^I should see ['"]/i) !== null ||
+            text.match(/^I should not see ['"]/i) !== null ||
+            text.match(/^I wait for ['"]/i) !== null ||
+            text.match(/^I select ['"]/i) !== null;
     }
     async handle(text, step, context, executor) {
         if (text.match(/^user opens browser/i)) {
@@ -225,6 +234,88 @@ export class UiHandler {
                 throw new Error('Browser not opened. Use "user opens browser" first.');
             const name = screenshotMatch[1];
             await executor.takeScreenshot(name, context);
+            return;
+        }
+        const iOpenMatch = text.match(/^I (?:open|visit) ['"](.+)['"]/i);
+        if (iOpenMatch) {
+            let playwright = executor.getPlaywright();
+            if (!playwright) {
+                playwright = new PlaywrightClient({
+                    headless: true,
+                    timeout: executor.getOptions().timeout,
+                    video: executor.getOptions().video,
+                });
+                executor.setPlaywright(playwright);
+            }
+            await playwright.launch();
+            const url = resolveEnv(iOpenMatch[1], executor.getEnvConfig());
+            await playwright.navigate(url);
+            context.variables['__playwright'] = playwright;
+            return;
+        }
+        const iClickMatch = text.match(/^I click ['"](.+)['"]/i);
+        if (iClickMatch) {
+            const pw = executor.getPlaywright(context);
+            if (!pw)
+                throw new Error('Browser not opened. Use "I open \'url\'" first.');
+            await pw.click(iClickMatch[1]);
+            return;
+        }
+        const iFillMatch = text.match(/^I fill ['"](.+)['"] with ['"](.+)['"]/i);
+        if (iFillMatch) {
+            const pw = executor.getPlaywright(context);
+            if (!pw)
+                throw new Error('Browser not opened. Use "I open \'url\'" first.');
+            const resolvedText = executor.resolveVariables(iFillMatch[2], context);
+            await pw.type(iFillMatch[1], resolvedText);
+            return;
+        }
+        const iTypeMatch = text.match(/^I type ['"](.+)['"] into ['"](.+)['"]/i);
+        if (iTypeMatch) {
+            const pw = executor.getPlaywright(context);
+            if (!pw)
+                throw new Error('Browser not opened. Use "I open \'url\'" first.');
+            const resolvedText = executor.resolveVariables(iTypeMatch[1], context);
+            await pw.type(iTypeMatch[2], resolvedText);
+            return;
+        }
+        const iShouldSeeMatch = text.match(/^I should see ['"](.+)['"]/i);
+        if (iShouldSeeMatch) {
+            const pw = executor.getPlaywright(context);
+            if (!pw)
+                throw new Error('Browser not opened. Use "I open \'url\'" first.');
+            const isVisible = await pw.isVisible(iShouldSeeMatch[1]);
+            if (!isVisible) {
+                throw new Error(`Expected to see element '${iShouldSeeMatch[1]}' but it's not visible`);
+            }
+            return;
+        }
+        const iShouldNotSeeMatch = text.match(/^I should not see ['"](.+)['"]/i);
+        if (iShouldNotSeeMatch) {
+            const pw = executor.getPlaywright(context);
+            if (!pw)
+                throw new Error('Browser not opened. Use "I open \'url\'" first.');
+            const isVisible = await pw.isVisible(iShouldNotSeeMatch[1]);
+            if (isVisible) {
+                throw new Error(`Element '${iShouldNotSeeMatch[1]}' should not be visible but it is`);
+            }
+            return;
+        }
+        const iWaitMatch = text.match(/^I wait for ['"](.+)['"]/i);
+        if (iWaitMatch) {
+            const pw = executor.getPlaywright(context);
+            if (!pw)
+                throw new Error('Browser not opened. Use "I open \'url\'" first.');
+            const page = pw.getPage();
+            await page?.waitForSelector(iWaitMatch[1], { state: 'visible', timeout: 30000 });
+            return;
+        }
+        const iSelectMatch = text.match(/^I select ['"](.+)['"] from ['"](.+)['"]/i);
+        if (iSelectMatch) {
+            const pw = executor.getPlaywright(context);
+            if (!pw)
+                throw new Error('Browser not opened. Use "I open \'url\'" first.');
+            await pw.getPage()?.selectOption(iSelectMatch[2], { label: iSelectMatch[1] });
             return;
         }
     }
