@@ -65,3 +65,7 @@ export class SemanticLocators {
     return this.page.getByTitle(text, options);
   }
 }
+
+export function createSemanticLocators(page: Page): SemanticLocators {
+  return new SemanticLocators(page);
+}
