@@ -378,7 +378,7 @@ program
 program
     .command('debug')
     .description('Debug tests in interactive mode')
-    .option('-f, --feature <path>', 'Path to feature file')
+    .option('-p, --feature <path>', 'Path to feature file')
     .option('-s, --scenario <name>', 'Scenario name to debug')
     .option('-f, --features <path>', 'Path to features directory', './features')
     .action(async (options) => {
