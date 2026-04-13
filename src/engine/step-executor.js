@@ -25,6 +25,7 @@ import { ComponentTesterHandler } from './handlers/component-tester.js';
 import { ValueParser } from '../utils/value-parser.js';
 import { ScreenshotManager } from './screenshot-manager.js';
 import { HopError, createErrorFromStep, isUndefinedStepError } from '../utils/error-formatter.js';
+import { TimeTravelDebugger, createTimeTravelDebugger } from './time-travel.js';
 import { generateUndefinedStepMessage } from './snippet-generator.js';
 export class StepExecutor {
     options;
@@ -41,6 +42,7 @@ export class StepExecutor {
     logger;
     valueParser;
     screenshotManager;
+    timeTravelDebugger;
     constructor(options) {
         this.options = options;
         this.logger = options.logger || console;
@@ -54,6 +56,7 @@ export class StepExecutor {
         this.db = new DbManager();
         this.valueParser = new ValueParser(this.envConfig);
         this.screenshotManager = new ScreenshotManager(options.reportDir || './reports');
+        this.timeTravelDebugger = createTimeTravelDebugger();
         this.handlers = [
             new DbHandler(), new CoreHandler(), new HttpHandler(),
             new AssertionHandler(), new UiHandler(), new AuthHandler(),
@@ -78,8 +81,17 @@ export class StepExecutor {
     }
     setPlaywright(pw) { this.playwright = pw; }
     addMockServer(server) { this.mockServers.push(server); }
+    enableTimeTravel() { this.timeTravelDebugger.enable(); }
+    disableTimeTravel() { this.timeTravelDebugger.disable(); }
+    getTimeTravelDebugger() { return this.timeTravelDebugger; }
     async executeStep(step, context) {
         const text = resolveEnv(step.text, this.envConfig);
+        if (this.timeTravelDebugger.isEnabled() && this.playwright) {
+            const page = this.playwright.getPage();
+            if (page) {
+                await this.timeTravelDebugger.captureStep(page, step.keyword, text, context.variables);
+            }
+        }
         const handler = this.handlers.find(h => h.canHandle(text));
         if (handler) {
             try {

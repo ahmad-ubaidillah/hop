@@ -33,7 +33,10 @@ export class UiHandler implements StepHandler {
            text.match(/^I should see ['"]/i) !== null ||
            text.match(/^I should not see ['"]/i) !== null ||
            text.match(/^I wait for ['"]/i) !== null ||
-           text.match(/^I select ['"]/i) !== null;
+           text.match(/^I select ['"]/i) !== null ||
+           text.match(/^I enable time travel/i) !== null ||
+           text.match(/^I disable time travel/i) !== null ||
+           text.match(/^I take snapshot/i) !== null;
   }
 
   async handle(text: string, step: Step, context: TestContext, executor: IStepExecutor): Promise<void> {
@@ -336,6 +339,32 @@ export class UiHandler implements StepHandler {
       const pw = executor.getPlaywright(context);
       if (!pw) throw new Error('Browser not opened. Use "I open \'url\'" first.');
       await pw.getPage()?.selectOption(iSelectMatch[2], { label: iSelectMatch[1] });
+      return;
+    }
+
+    if (text.match(/^I enable time travel/i)) {
+      executor.enableTimeTravel();
+      console.log('   ⏱️ Time Travel Debugging enabled');
+      return;
+    }
+
+    if (text.match(/^I disable time travel/i)) {
+      executor.disableTimeTravel();
+      console.log('   ⏱️ Time Travel Debugging disabled');
+      return;
+    }
+
+    const iSnapshotMatch = text.match(/^I take snapshot ['"](.+)['"]/i);
+    if (iSnapshotMatch) {
+      const pw = executor.getPlaywright(context);
+      if (!pw) throw new Error('Browser not opened. Use "I open \'url\'" first.');
+      
+      const name = iSnapshotMatch[1];
+      const page = pw.getPage();
+      if (page) {
+        await page.screenshot({ path: `./screenshots/${name}-${Date.now()}.png`, fullPage: true });
+        console.log(`   📸 Snapshot saved: ${name}`);
+      }
       return;
     }
   }

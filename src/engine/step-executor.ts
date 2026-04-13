@@ -28,6 +28,7 @@ import { ComponentTesterHandler } from './handlers/component-tester.js';
 import { ValueParser } from '../utils/value-parser.js';
 import { ScreenshotManager } from './screenshot-manager.js';
 import { HopError, createErrorFromStep, isUndefinedStepError } from '../utils/error-formatter.js';
+import { TimeTravelDebugger, createTimeTravelDebugger } from './time-travel.js';
 import { generateUndefinedStepMessage, type SnippetOptions } from './snippet-generator.js';
 
 interface StepExecutorOptions {
@@ -56,6 +57,7 @@ export class StepExecutor implements IStepExecutor {
   private logger: Logger;
   private valueParser: ValueParser;
   private screenshotManager: ScreenshotManager;
+  private timeTravelDebugger: TimeTravelDebugger;
   
   constructor(private options: StepExecutorOptions) {
     this.logger = options.logger || console;
@@ -69,6 +71,7 @@ export class StepExecutor implements IStepExecutor {
     this.db = new DbManager();
     this.valueParser = new ValueParser(this.envConfig);
     this.screenshotManager = new ScreenshotManager(options.reportDir || './reports');
+    this.timeTravelDebugger = createTimeTravelDebugger();
     
     this.handlers = [
       new DbHandler(), new CoreHandler(), new HttpHandler(),
@@ -97,9 +100,20 @@ export class StepExecutor implements IStepExecutor {
   }
   public setPlaywright(pw: PlaywrightClient | null): void { this.playwright = pw; }
   public addMockServer(server: any): void { this.mockServers.push(server); }
+  public enableTimeTravel(): void { this.timeTravelDebugger.enable(); }
+  public disableTimeTravel(): void { this.timeTravelDebugger.disable(); }
+  public getTimeTravelDebugger(): TimeTravelDebugger { return this.timeTravelDebugger; }
 
   async executeStep(step: Step, context: TestContext): Promise<void> {
     const text = resolveEnv(step.text, this.envConfig);
+    
+    if (this.timeTravelDebugger.isEnabled() && this.playwright) {
+      const page = this.playwright.getPage();
+      if (page) {
+        await this.timeTravelDebugger.captureStep(page, step.keyword, text, context.variables);
+      }
+    }
+    
     const handler = this.handlers.find(h => h.canHandle(text));
     if (handler) {
       try {
