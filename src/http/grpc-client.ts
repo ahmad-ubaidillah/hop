@@ -77,8 +77,11 @@ export class GrpcClient {
     const address = `${this.host}:${this.port}`;
     const client = new service(address, credentials.createInsecure());
 
+    const grpcModule = await import('@grpc/grpc-js');
+    const Metadata = grpcModule.Metadata;
+    
     return new Promise((resolve) => {
-      const metadata = new (await import('@grpc/grpc-js')).Metadata();
+      const metadata = new Metadata();
       if (request.metadata) {
         for (const [key, value] of Object.entries(request.metadata)) {
           metadata.add(key, value);
