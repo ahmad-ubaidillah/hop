@@ -126,14 +126,15 @@ export class StepExecutor implements IStepExecutor {
       }
     }
     
-    const snippet: SnippetOptions = {
-      keyword: step.keyword,
-      stepText: step.text,
-      stepPattern: step.text,
-    };
+    const suggestions = this.getStepSuggestions(step.text);
+    
     throw new HopError(
       `Unknown step: ${step.keyword} ${step.text}`,
-      { step, context, suggestions: [`Run 'hop test --snippet' to generate step definitions`, `Create custom step in './steps' directory`] }
+      { 
+        step, 
+        context, 
+        suggestions 
+      }
     );
   }
 
@@ -181,5 +182,49 @@ export class StepExecutor implements IStepExecutor {
     this.db?.close();
     this.mockServers = [];
     this.playwright = null;
+  }
+
+  private getStepSuggestions(stepText: string): string[] {
+    const suggestions: string[] = [];
+    const lowerText = stepText.toLowerCase();
+    
+    if (lowerText.includes('open') || lowerText.includes('visit') || lowerText.includes('navigate')) {
+      suggestions.push('Use: I open \'https://example.com\'');
+      suggestions.push('Or: user navigates to \'https://example.com\'');
+    }
+    
+    if (lowerText.includes('fill') || lowerText.includes('type') || lowerText.includes('input')) {
+      suggestions.push('Use: I fill \'#selector\' with \'value\'');
+      suggestions.push('Or: I type \'value\' into \'#selector\'');
+      suggestions.push('Or: user types \'value\' into \'#selector\'');
+    }
+    
+    if (lowerText.includes('click') || lowerText.includes('press')) {
+      suggestions.push('Use: I click \'#selector\'');
+      suggestions.push('Or: user clicks \'#selector\'');
+    }
+    
+    if (lowerText.includes('see') || lowerText.includes('should') || lowerText.includes('expect')) {
+      suggestions.push('Use: I should see \'.selector\'');
+      suggestions.push('Or: user should see element \'.selector\'');
+    }
+    
+    if (lowerText.includes('wait')) {
+      suggestions.push('Use: I wait for \'.selector\'');
+      suggestions.push('Or: user waits for \'.selector\' to be visible');
+    }
+    
+    if (lowerText.includes('select')) {
+      suggestions.push('Use: I select \'Option\' from \'#selector\'');
+      suggestions.push('Or: user selects \'Option\' from \'#selector\'');
+    }
+    
+    if (suggestions.length === 0) {
+      suggestions.push('Run \'hop test --snippet\' to generate step definitions');
+      suggestions.push('Create custom step in \'./steps\' directory');
+      suggestions.push('Browser steps: I open, I click, I fill, I should see, I wait for');
+    }
+    
+    return suggestions;
   }
 }
