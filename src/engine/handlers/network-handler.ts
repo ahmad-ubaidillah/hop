@@ -10,7 +10,11 @@ export class NetworkHandler implements StepHandler {
            text.match(/^(Given|When|Then|And|But)?\s*block (url|api|network)/i) !== null ||
            text.match(/^(Given|When|Then|And|But)?\s*wait for network/i) !== null ||
            text.match(/^(Given|When|Then|And|But)?\s*verify (network|api) call/i) !== null ||
-           text.match(/^(Given|When|Then|And|But)?\s*intercept/i) !== null;
+           text.match(/^(Given|When|Then|And|But)?\s*intercept/i) !== null ||
+           text.match(/^I intercept/i) !== null ||
+           text.match(/^I mock/i) !== null ||
+           text.match(/^I wait for (request|response)/i) !== null ||
+           text.match(/^I stub/i) !== null;
   }
 
   async handle(text: string, step: Step, context: TestContext, executor: IStepExecutor): Promise<void> {
@@ -97,6 +101,118 @@ export class NetworkHandler implements StepHandler {
       if (urlMatch) {
         console.log(`🔀 Intercept configured for: ${urlMatch[1]}`);
       }
+      return;
+    }
+
+    const iInterceptMatch = text.match(/^I intercept (?:GET|POST|PUT|DELETE|PATCH)?\s*['"]([^'"]+)['"](?:\s*with\s*(.+))?$/i);
+    if (iInterceptMatch) {
+      const urlPattern = iInterceptMatch[1];
+      const responseData = iInterceptMatch[2];
+
+      let response;
+      let status = 200;
+
+      if (responseData) {
+        try {
+          response = JSON.parse(responseData);
+        } catch {
+          response = responseData.replace(/^['"]|['"]$/g, '');
+        }
+      }
+
+      const pw = executor.getPlaywright(context);
+      const ctx = pw?.getContext();
+      
+      if (ctx) {
+        await ctx.route(urlPattern, async (route) => {
+          if (response !== undefined) {
+            await route.fulfill({
+              status,
+              body: typeof response === 'object' ? JSON.stringify(response) : response,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          } else {
+            await route.continue();
+          }
+        });
+      }
+
+      console.log(`   🔀 Intercepting: ${urlPattern}`);
+      return;
+    }
+
+    const iMockMatch = text.match(/^I mock ['"]([^'"]+)['"]\s*with\s*(.+)$/i);
+    if (iMockMatch) {
+      const urlPattern = iMockMatch[1];
+      let responseData;
+
+      try {
+        responseData = JSON.parse(iMockMatch[2]);
+      } catch {
+        responseData = iMockMatch[2].replace(/^['"]|['"]$/g, '');
+      }
+
+      const pw = executor.getPlaywright(context);
+      const ctx = pw?.getContext();
+      
+      if (ctx) {
+        await ctx.route(urlPattern, async (route) => {
+          await route.fulfill({
+            status: 200,
+            body: typeof responseData === 'object' ? JSON.stringify(responseData) : responseData,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        });
+      }
+
+      console.log(`   🎭 Mocking: ${urlPattern}`);
+      return;
+    }
+
+    const iWaitMatch = text.match(/^I wait for (request|response)\s*(?:to|from)\s*['"]([^'"]+)['"]$/i);
+    if (iWaitMatch) {
+      const type = iWaitMatch[1].toLowerCase();
+      const urlPattern = iWaitMatch[2];
+
+      const pw = executor.getPlaywright(context);
+      const page = pw?.getPage();
+      
+      if (page) {
+        const waitFor = type === 'request' 
+          ? page.waitForRequest(urlPattern)
+          : page.waitForResponse(urlPattern);
+
+        await waitFor;
+        console.log(`   ⏳ Waited for ${type}: ${urlPattern}`);
+      }
+      return;
+    }
+
+    const iStubMatch = text.match(/^I stub ['"]([^'"]+)['"]\s*with\s*(.+)$/i);
+    if (iStubMatch) {
+      const urlPattern = iStubMatch[1];
+      let responseData;
+
+      try {
+        responseData = JSON.parse(iStubMatch[2]);
+      } catch {
+        responseData = iStubMatch[2].replace(/^['"]|['"]$/g, '');
+      }
+
+      const pw = executor.getPlaywright(context);
+      const ctx = pw?.getContext();
+      
+      if (ctx) {
+        await ctx.route(urlPattern, async (route) => {
+          await route.fulfill({
+            status: 200,
+            body: typeof responseData === 'object' ? JSON.stringify(responseData) : responseData,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        });
+      }
+
+      console.log(`   📌 Stubbed: ${urlPattern}`);
       return;
     }
   }
