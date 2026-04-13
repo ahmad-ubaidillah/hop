@@ -31,16 +31,14 @@ export class BrowserInteractions {
         const page = this.manager.getPage();
         if (!page)
             throw new Error('Browser not launched. Call launch() first.');
-        await this.waitForElement(selector, 'visible');
-        await this.waitForElement(selector, 'enabled');
+        await page.waitForSelector(selector, { state: 'visible', timeout: this.autoWaitTimeout });
         await page.click(selector);
     }
     async type(selector, text, clear = false) {
         const page = this.manager.getPage();
         if (!page)
             throw new Error('Browser not launched. Call launch() first.');
-        await this.waitForElement(selector, 'visible');
-        await this.waitForElement(selector, 'enabled');
+        await page.waitForSelector(selector, { state: 'visible', timeout: this.autoWaitTimeout });
         if (clear) {
             await page.fill(selector, '');
         }
@@ -50,8 +48,8 @@ export class BrowserInteractions {
         const page = this.manager.getPage();
         if (!page)
             throw new Error('Browser not launched. Call launch() first.');
-        await this.waitForElement(selector, 'visible');
-        await this.waitForElement(selector, 'enabled');
+        await this.waitForElement(selector, 'attached');
+        await page.waitForSelector(selector, { state: 'visible', timeout: this.autoWaitTimeout });
         await page.fill(selector, text);
     }
     async setCookie(name, value, domain) {
