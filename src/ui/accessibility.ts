@@ -1,4 +1,5 @@
 import type { Page } from 'playwright-core';
+import type { TestContext } from '../types/index.js';
 
 export interface AccessibilityResult {
   passed: boolean;
